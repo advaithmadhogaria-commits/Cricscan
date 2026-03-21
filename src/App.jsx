@@ -353,6 +353,7 @@ function CameraTracker({zones,onDetect,active}){
 
 // ── SCORING SCREEN ────────────────────────────────────────────────────────────
 function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave}){
+  if(!match||!match.teams||!match.teams[match.batting]) return null;
   const bt=match.teams[match.batting];
   const isChasing=match.inning>0&&match.format!=="test";
   const target=isChasing?match.teams[0].score+1:null;
@@ -706,8 +707,8 @@ function ScorecardScreen({match,onBack}){
         <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:14,marginBottom:14}}>
           <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:24,fontWeight:900,marginBottom:4}}>{t.score}<span style={{color:"var(--danger)",fontSize:16}}>/{t.wickets}</span></div>
           <div style={{display:"flex",gap:14,color:"var(--muted)",fontSize:12}}>
-            <span>Overs: {overStr(t.balls)}</span>
-            <span>RR: <b style={{color:"var(--text)"}}>{calcRR(t.score,t.balls)}</b></span>
+            <span>Overs: {overStr(t?.balls||0)}</span>
+            <span>RR: <b style={{color:"var(--text)"}}>{calcRR(t?.score||0,t?.balls||0)}</b></span>
           </div>
           <div style={{color:"var(--muted)",fontSize:11,marginTop:4}}>Extras: {Object.values(t.extras).reduce((a,b)=>a+b,0)} (W:{t.extras.wide} NB:{t.extras.noBall} B:{t.extras.bye} LB:{t.extras.legBye})</div>
         </div>
@@ -756,12 +757,14 @@ function ScorecardScreen({match,onBack}){
 
 // ── RESULT SCREEN ─────────────────────────────────────────────────────────────
 function ResultScreen({match,onNewMatch}){
-  const [tab,setTab]=useState("awards"); // awards | innings1 | innings2 | innings3 | innings4
+  const [tab,setTab]=useState("awards");
+  if(!match||!match.teams||!match.teams[0]||!match.teams[1]) return null;
   const [t0,t1]=match.teams;
   const isTest=match.format==="test";
 
   // ── Auto-analyse all players ──
-  const all=[...t0.players.map(p=>({...p,team:t0.name})),...t1.players.map(p=>({...p,team:t1.name}))];
+  const all=[...(t0.players||[]).map(p=>({...p,team:t0.name})),...(t1.players||[]).map(p=>({...p,team:t1.name}))];
+  if(!all.length) return null;
 
   // POTM score = weighted formula
   const potmScore=p=>{
@@ -773,13 +776,14 @@ function ResultScreen({match,onNewMatch}){
     return batScore+bowlScore+fieldScore;
   };
 
-  const potm=all.reduce((a,b)=>potmScore(b)>potmScore(a)?b:a,all[0]);
+  const potm=all.length>0?all.reduce((a,b)=>potmScore(b)>potmScore(a)?b:a,all[0]):{name:"—",team:""};
 
   // Best batter = most runs, tiebreak by SR
-  const bestBatter=all.filter(p=>(p.balls||0)>0).reduce((a,b)=>{
+  const batters=all.filter(p=>(p.balls||0)>0);
+  const bestBatter=batters.length>0?batters.reduce((a,b)=>{
     if((b.runs||0)!==(a.runs||0))return(b.runs||0)>(a.runs||0)?b:a;
     return((b.runs/b.balls)>(a.runs/a.balls))?b:a;
-  },all[0]);
+  },batters[0]):all[0]||{name:"—",runs:0,balls:0,team:""};
 
   // Best bowler = most wickets, tiebreak by economy
   const bowlers=all.filter(p=>(p.ballsBowled||0)>0);
@@ -790,10 +794,11 @@ function ResultScreen({match,onNewMatch}){
   },bowlers[0]):null;
 
   // Best fielder = most dismissals
-  const bestFielder=all.reduce((a,b)=>((b.catches||0)+(b.runOuts||0)+(b.stumpings||0))>((a.catches||0)+(a.runOuts||0)+(a.stumpings||0))?b:a,all[0]);
+  const bestFielder=all.length>0?all.reduce((a,b)=>((b.catches||0)+(b.runOuts||0)+(b.stumpings||0))>((a.catches||0)+(a.runOuts||0)+(a.stumpings||0))?b:a,all[0]):{name:"—",team:""};
 
   // Impact player = highest potm score excluding POTM winner (so 2 different players)
-  const impact=all.filter(p=>p.name!==potm.name).reduce((a,b)=>potmScore(b)>potmScore(a)?b:a,all.find(p=>p.name!==potm.name)||all[0]);
+  const impactPool=all.filter(p=>p.name!==potm.name);
+  const impact=impactPool.length>0?impactPool.reduce((a,b)=>potmScore(b)>potmScore(a)?b:a,impactPool[0]):{name:"—",team:""};
 
   const result=t0.score>t1.score?`${t0.name} won by ${t0.score-t1.score} runs!`:t1.score>t0.score?`${t1.name} won by ${10-t1.wickets} wickets!`:"Match Tied!";
 
@@ -813,7 +818,7 @@ function ResultScreen({match,onNewMatch}){
           {[t0,t1].map((t,i)=>(<div key={i} style={{background:"var(--card)",borderRadius:"var(--rad)",padding:"8px 14px",border:"1px solid var(--border)",textAlign:"center"}}>
             <div style={{fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div>
             <div style={{fontFamily:"Orbitron",fontSize:18,color:"var(--text)",fontWeight:700}}>{t.score}<span style={{color:"var(--danger)",fontSize:13}}>/{t.wickets}</span></div>
-            <div style={{fontSize:10,color:"var(--muted)"}}>{overStr(t.balls)} ov</div>
+            <div style={{fontSize:10,color:"var(--muted)"}}>{overStr(t?.balls||0)} ov</div>
           </div>))}
         </div>
       </div>
@@ -883,8 +888,8 @@ function ResultScreen({match,onNewMatch}){
               <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:4}}>INNINGS {i+1} — {inn.teamName}</div>
               <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:24,fontWeight:900,marginBottom:4}}>{inn.score}<span style={{color:"var(--danger)",fontSize:16}}>/{inn.wickets}</span></div>
               <div style={{display:"flex",gap:14,color:"var(--muted)",fontSize:12}}>
-                <span>Overs: {overStr(inn.balls)}</span>
-                <span>RR: {calcRR(inn.score,inn.balls)}</span>
+                <span>Overs: {overStr(inn?.balls||0)}</span>
+                <span>RR: {calcRR(inn?.score||0,inn?.balls||0)}</span>
               </div>
               {inn.extras&&<div style={{color:"var(--muted)",fontSize:11,marginTop:4}}>Extras: {Object.values(inn.extras).reduce((a,b)=>a+b,0)} (W:{inn.extras.wide} NB:{inn.extras.noBall} B:{inn.extras.bye} LB:{inn.extras.legBye})</div>}
             </div>
@@ -961,7 +966,7 @@ function HistoryScreen({onBack,onView}){
               {r.teams.map((t,i)=>(<div key={i} style={{flex:1,background:"var(--bg3)",borderRadius:"var(--rad)",padding:"8px 10px"}}>
                 <div style={{fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div>
                 <div style={{fontFamily:"Orbitron",fontSize:18,color:"var(--text)",fontWeight:700,marginTop:2}}>{t.score}<span style={{color:"var(--danger)",fontSize:12}}>/{t.wickets}</span></div>
-                <div style={{fontSize:11,color:"var(--muted)"}}>({overStr(t.balls)} ov)</div>
+                <div style={{fontSize:11,color:"var(--muted)"}}>({overStr(t?.balls||0)} ov)</div>
               </div>))}
             </div>
             <button onClick={()=>onView(r)} style={{width:"100%",marginTop:10,padding:"8px 0",background:"rgba(0,229,255,0.06)",color:"var(--accent)",border:"1px solid rgba(0,229,255,0.25)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>VIEW FULL SCORECARD →</button>
@@ -985,7 +990,21 @@ export default function App(){
 
   // Restore live match on reload
   useEffect(()=>{
-    try{const s=localStorage.getItem("cricscan_live");if(s){const p=JSON.parse(s);if(!p.ended){setMatch(p);setScreen("scoring");return;}}setScreen("splash");}catch{}
+    try{
+      const s=localStorage.getItem("cricscan_live");
+      if(s){
+        const p=JSON.parse(s);
+        // Validate it has required fields before restoring
+        if(p&&!p.ended&&p.teams&&p.teams.length===2&&p.striker&&p.currentBowler){
+          setMatch(p);setScreen("scoring");return;
+        }
+      }
+      // Clear any corrupted data
+      localStorage.removeItem("cricscan_live");
+    }catch(e){
+      localStorage.removeItem("cricscan_live");
+    }
+    setScreen("splash");
   },[]);
 
   // Auto-save every change
