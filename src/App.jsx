@@ -293,7 +293,7 @@ function CameraTracker({zones,onDetect,active}){
 }
 
 // ── SCORING SCREEN ────────────────────────────────────────────────────────────
-function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap}){
+function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave}){
   const bt=match.teams[match.batting];
   const isChasing=match.inning>0&&match.format!=="test";
   const target=isChasing?match.teams[0].score+1:null;
@@ -513,6 +513,15 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
             {!bt.commentary?.length&&<div style={{color:"var(--muted)",fontSize:12}}>No commentary yet...</div>}
           </div>
         )}
+
+        {/* ── LEAVE MATCH ── */}
+        <div style={{marginTop:20,paddingTop:14,borderTop:"1px solid var(--border)"}}>
+          <button onClick={onLeave} style={{width:"100%",padding:"12px 0",background:"transparent",color:"var(--danger)",border:`1px solid rgba(255,61,90,0.3)`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,letterSpacing:2,cursor:"pointer"}}>
+            ✕ LEAVE MATCH
+          </button>
+          <div style={{textAlign:"center",fontSize:10,color:"var(--muted)",marginTop:6,fontFamily:"Barlow Condensed"}}>Match progress will be saved</div>
+        </div>
+
       </div>
     </div>
   );
@@ -901,6 +910,7 @@ export default function App(){
   const [showStrikeSwap,setShowStrikeSwap]=useState(false);
   const [historyMatch,setHistoryMatch]=useState(null);
   const [stumpsType,setStumpsType]=useState(null);
+  const [showLeaveConfirm,setShowLeaveConfirm]=useState(false);
 
   // Restore live match on reload
   useEffect(()=>{
@@ -1097,7 +1107,7 @@ export default function App(){
     }
   },[match?.teams?.[0]?.balls,match?.teams?.[1]?.balls,match?.teams?.[0]?.wickets,match?.teams?.[1]?.wickets]);
 
-  const handleNewMatch=()=>{localStorage.removeItem("cricscan_live");setMatch(null);setScreen("setup");};
+  const handleNewMatch=()=>{localStorage.removeItem("cricscan_live");setMatch(null);setScreen("splash");};
 
   return (
     <>
@@ -1117,11 +1127,25 @@ export default function App(){
             <NavBtn onClick={()=>setScreen("scorecard")} label="SCORECARD"/>
             <NavBtn onClick={()=>setScreen("history")} label="HISTORY"/>
           </div>
-          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap}/>
+          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)}/>
           {showWicket&&<WicketDialog batters={[match.striker,match.nonStriker]} fieldingTeam={match.teams[match.bowling].players} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
           {showBowlerSelect&&<BowlerSelectDialog players={match.teams[match.bowling].players} currentBowler={match.currentBowler?.name} onSelect={confirmBowler}/>}
           {showStrikeSwap&&<StrikeSwapDialog striker={match.striker} nonStriker={match.nonStriker} onConfirm={()=>{doStrikeSwap();setShowStrikeSwap(false);}} onCancel={()=>{cancelStrikeSwap();setShowStrikeSwap(false);}}/>}
           {stumpsType&&<StumpsDialog type={stumpsType} onResume={()=>setStumpsType(null)} onEnd={()=>{setStumpsType(null);handleEndInnings();}}/>}
+          {showLeaveConfirm&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
+              <div style={{background:"var(--card)",border:"1px solid var(--danger)",borderRadius:"var(--rad2)",padding:24,width:"100%",maxWidth:300,textAlign:"center",animation:"fadeInUp 0.25s ease"}}>
+                <div style={{fontSize:36,marginBottom:10}}>🚪</div>
+                <div style={{fontFamily:"Orbitron",color:"var(--danger)",fontSize:13,letterSpacing:2,marginBottom:8}}>LEAVE MATCH?</div>
+                <div style={{color:"var(--muted)",fontSize:13,marginBottom:6,lineHeight:1.6}}>Your match progress is saved. You can continue later.</div>
+                <div style={{color:"var(--muted)",fontSize:12,marginBottom:20}}>Are you sure you want to leave?</div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setShowLeaveConfirm(false)} style={{flex:1,padding:"11px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>STAY</button>
+                  <button onClick={()=>{setShowLeaveConfirm(false);setScreen("splash");}} style={{flex:1,padding:"11px 0",background:"var(--danger)",color:"#fff",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:11,cursor:"pointer",letterSpacing:1}}>LEAVE ✕</button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
       {screen==="scorecard"&&match&&<ScorecardScreen match={match} onBack={()=>setScreen("scoring")}/>}
