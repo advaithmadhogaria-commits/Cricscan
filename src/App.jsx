@@ -1077,24 +1077,6 @@ export default function App(){
     });
   };
 
-  const saveInningsSnapshot=(nm)=>{
-    // Save a snapshot of current innings for test match scorecard
-    if(nm.format!=="test")return;
-    if(!nm.inningsLog)nm.inningsLog=[];
-    const bt=nm.teams[nm.batting];
-    const bw=nm.teams[nm.bowling];
-    nm.inningsLog.push({
-      teamName:bt.name,
-      label:`Innings ${nm.inning+1}`,
-      score:bt.score,wickets:bt.wickets,balls:bt.balls,
-      extras:{...bt.extras},
-      players:bt.players.map(p=>({...p})),
-      bowlers:bw.players.map(p=>({...p})),
-      fow:[...(bt.fow||[])],
-      commentary:[...(bt.commentary||[])],
-    });
-  };
-
   const saveHistory=m=>{
     try{
       // For test: save the final innings before result
