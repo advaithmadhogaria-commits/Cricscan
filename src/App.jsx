@@ -109,7 +109,7 @@ function SplashScreen({onStart}){
 
 // ── SETUP SCREEN ──────────────────────────────────────────────────────────────
 function SetupScreen({onStart}){
-  const [step,setStep]=useState(0); // 0=match info, 1=squads
+  const [step,setStep]=useState(0);
   const [team1,setTeam1]=useState("Team Alpha");
   const [team2,setTeam2]=useState("Team Bravo");
   const [overs,setOvers]=useState(10);
@@ -117,8 +117,44 @@ function SetupScreen({onStart}){
   const [ballType,setBallType]=useState("tennis");
   const [players1,setPlayers1]=useState(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
   const [players2,setPlayers2]=useState(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
+  const [captain1,setCaptain1]=useState(0);
+  const [captain2,setCaptain2]=useState(0);
+  const [wk1,setWk1]=useState(6);
+  const [wk2,setWk2]=useState(6);
+  const [tossWinner,setTossWinner]=useState(0);
+  const [tossChoice,setTossChoice]=useState("bat");
   const [tab,setTab]=useState(0);
+
+  // Load saved data on mount
+  useEffect(()=>{
+    try{
+      const saved=JSON.parse(localStorage.getItem("cricscan_teams")||"{}");
+      if(saved.team1)setTeam1(saved.team1);
+      if(saved.team2)setTeam2(saved.team2);
+      if(saved.players1)setPlayers1(saved.players1);
+      if(saved.players2)setPlayers2(saved.players2);
+      if(saved.captain1!=null)setCaptain1(saved.captain1);
+      if(saved.captain2!=null)setCaptain2(saved.captain2);
+      if(saved.wk1!=null)setWk1(saved.wk1);
+      if(saved.wk2!=null)setWk2(saved.wk2);
+    }catch{}
+  },[]);
+
+  // Save data whenever it changes
+  useEffect(()=>{
+    try{
+      localStorage.setItem("cricscan_teams",JSON.stringify({team1,team2,players1,players2,captain1,captain2,wk1,wk2}));
+    }catch{}
+  },[team1,team2,players1,players2,captain1,captain2,wk1,wk2]);
+
   const upd=(team,idx,val)=>{if(team===0){const a=[...players1];a[idx]=val;setPlayers1(a);}else{const a=[...players2];a[idx]=val;setPlayers2(a);}};
+  const clearSaved=()=>{
+    localStorage.removeItem("cricscan_teams");
+    setTeam1("Team Alpha");setTeam2("Team Bravo");
+    setPlayers1(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
+    setPlayers2(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
+    setCaptain1(0);setCaptain2(0);setWk1(6);setWk2(6);
+  };
 
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,#0d1f2d 0%,#080c10 70%)"}}>
@@ -333,6 +369,9 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
 
       {/* ════ HEADER ════ */}
       <div style={{background:"linear-gradient(180deg,#0d1f30 0%,#0a1520 100%)",borderBottom:"1px solid var(--border)",padding:"10px 14px 8px"}}>
+
+        {/* Toss info strip — only show if toss info exists */}
+        {match.toss&&<div style={{fontSize:10,color:"var(--muted)",background:"rgba(255,215,0,0.06)",borderRadius:4,padding:"3px 8px",marginBottom:6,fontFamily:"Barlow Condensed",letterSpacing:1}}>🪙 {match.toss}</div>}
 
         {/* Team name + format tag */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
@@ -636,6 +675,7 @@ function ScorecardScreen({match,onBack}){
         <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2}}>SCORECARD</div>
         {match.format&&<span style={{marginLeft:"auto",fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{match.format.toUpperCase()} · {match.ballType?.toUpperCase()}</span>}
       </div>
+      {match.toss&&<div style={{padding:"4px 14px 6px",fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",letterSpacing:1}}>🪙 {match.toss}</div>}
       <div style={{display:"flex",borderBottom:"1px solid var(--border)"}}>
         {match.teams.map((tm,i)=>(<button key={i} onClick={()=>setTab(i)} style={{flex:1,padding:"10px 0",background:tab===i?"var(--bg3)":"transparent",color:tab===i?"var(--accent)":"var(--muted)",border:"none",borderBottom:tab===i?"2px solid var(--accent)":"2px solid transparent",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>{tm.name}</button>))}
       </div>
@@ -653,7 +693,15 @@ function ScorecardScreen({match,onBack}){
           <TableRow header cells={["BATTER","R","B","4s","6s","SR"]}/>
           {t.players.map((p,i)=>(
             <TableRow key={i} cells={[
-              <span key="n"><span style={{fontWeight:p.dismissed?400:600}}>{p.name}{!p.dismissed&&<span style={{color:"var(--accent3)",fontSize:9}}> *</span>}</span>{p.dismissed&&<span style={{display:"block",color:"var(--muted)",fontSize:9,fontWeight:400}}>{p.dismissal}{p.catchBy?` (${p.catchBy})`:""}</span>}</span>,
+              <span key="n">
+                <span style={{fontWeight:p.dismissed?400:600,display:"flex",alignItems:"center",gap:3,flexWrap:"wrap"}}>
+                  {p.name}
+                  {!p.dismissed&&<span style={{color:"var(--accent3)",fontSize:9}}> *</span>}
+                  {p.isCaptain&&<span style={{fontSize:8,background:"rgba(255,215,0,0.2)",color:"var(--gold)",borderRadius:3,padding:"1px 4px",fontFamily:"Barlow Condensed",fontWeight:700}}>C</span>}
+                  {p.isWK&&<span style={{fontSize:8,background:"rgba(0,229,255,0.15)",color:"var(--accent)",borderRadius:3,padding:"1px 4px",fontFamily:"Barlow Condensed",fontWeight:700}}>WK</span>}
+                </span>
+                {p.dismissed&&<span style={{display:"block",color:"var(--muted)",fontSize:9,fontWeight:400}}>{p.dismissal}{p.catchBy?` (${p.catchBy})`:""}</span>}
+              </span>,
               p.runs||0,p.balls||0,p.fours||0,p.sixes||0,
               p.balls>0?((p.runs/p.balls)*100).toFixed(0):"-"
             ]}/>
@@ -920,9 +968,20 @@ export default function App(){
   // Auto-save every change
   useEffect(()=>{if(match&&!match.ended){try{localStorage.setItem("cricscan_live",JSON.stringify(match));}catch{}}},[match]);
 
-  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2})=>{
+  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,tossWinner,tossChoice})=>{
     const t0=mkTeam(team1,players1);const t1=mkTeam(team2,players2);
-    setMatch({teams:[t0,t1],overs,format,ballType,batting:0,bowling:1,inning:0,
+    // Mark captain and wicketkeeper
+    if(t0.players[captain1])t0.players[captain1].isCaptain=true;
+    if(t0.players[wk1])t0.players[wk1].isWK=true;
+    if(t1.players[captain2])t1.players[captain2].isCaptain=true;
+    if(t1.players[wk2])t1.players[wk2].isWK=true;
+    // Determine batting first based on toss
+    const battingFirst = tossChoice==="bat" ? tossWinner : 1-tossWinner;
+    const bowlingFirst = 1-battingFirst;
+    const tossMsg=`${[team1,team2][tossWinner]} won the toss and elected to ${tossChoice} first`;
+    setMatch({teams:[t0,t1],overs,format,ballType,
+      batting:battingFirst,bowling:bowlingFirst,inning:0,
+      toss:tossMsg,
       striker:{...t0.players[0]},nonStriker:{...t0.players[1]},strikerIdx:0,nonStrikerIdx:1,nextBatterIdx:2,
       currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[]});
     setScreen("camera");
