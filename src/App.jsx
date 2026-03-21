@@ -326,7 +326,9 @@ function ScoringScreen({ match, onBall, onWicket, onUndo, onEndInnings }) {
 
   const [showCamera, setShowCamera] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [extraType, setExtraType] = useState(null); // null | 'wide' | 'noBall' | 'bye' | 'legBye'
+  const [extraType, setExtraType] = useState(null);
+  const [declareDialog, setDeclareDialog] = useState(null);
+  const [declareRuns, setDeclareRuns] = useState("");
 
   const notify = (msg, color = "var(--accent)") => {
     setNotification({ msg, color });
@@ -340,6 +342,16 @@ function ScoringScreen({ match, onBall, onWicket, onUndo, onEndInnings }) {
   };
 
   const handleWicket = () => { onWicket(); notify("WICKET! 🔴", "var(--danger)"); };
+
+  const handleDeclare = () => {
+    const r = parseInt(declareRuns);
+    if (isNaN(r) || r < 0) return;
+    onBall(r, extraType || "normal");
+    setExtraType(null);
+    setDeclareDialog(null);
+    setDeclareRuns("");
+    notify(r === 4 ? "FOUR! 🏏" : r === 6 ? "SIX! 🚀" : `${r} Run${r !== 1 ? "s" : ""} declared`, r === 6 ? "var(--accent3)" : r === 4 ? "var(--gold)" : "var(--accent)");
+  };
 
   const runBtns = [0, 1, 2, 3, 4, 6];
   const extraBtns = ["Wide", "No Ball", "Bye", "Leg Bye"];
@@ -386,13 +398,64 @@ function ScoringScreen({ match, onBall, onWicket, onUndo, onEndInnings }) {
           ))}
         </div>
 
-        {/* batter/bowler info */}
-        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-          <PlayerChip label="ON STRIKE" name={match.striker?.name || "—"} stat={`${match.striker?.runs || 0}(${match.striker?.balls || 0})`} color="var(--accent)" />
-          <PlayerChip label="NON-STRIKE" name={match.nonStriker?.name || "—"} stat={`${match.nonStriker?.runs || 0}(${match.nonStriker?.balls || 0})`} color="var(--muted)" />
-          <PlayerChip label="BOWLING" name={match.currentBowler?.name || "—"} stat={`${match.currentBowler?.wickets || 0}/${match.currentBowler?.runs || 0}`} color="var(--accent2)" />
+        {/* batter/bowler info — tap batter to declare runs */}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          {/* STRIKER — tappable */}
+          <div onClick={() => setDeclareDialog("striker")} style={{ flex: 1, background: "rgba(0,229,255,0.07)", border: "1.5px solid var(--accent)", borderRadius: "var(--rad)", padding: "6px 8px", cursor: "pointer", position: "relative" }}>
+            <div style={{ fontSize: 9, color: "var(--accent)", letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>ON STRIKE ✦</div>
+            <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.striker?.name || "—"}</div>
+            <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700 }}>{match.striker?.runs || 0}<span style={{color:"var(--muted)",fontWeight:400}}>({match.striker?.balls || 0})</span></div>
+            <div style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--accent)", opacity: 0.6 }}>TAP</div>
+          </div>
+          {/* NON-STRIKER — tappable */}
+          <div onClick={() => setDeclareDialog("nonStriker")} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: "var(--rad)", padding: "6px 8px", cursor: "pointer", position: "relative" }}>
+            <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>NON-STRIKE</div>
+            <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.nonStriker?.name || "—"}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>{match.nonStriker?.runs || 0}<span style={{color:"var(--muted)"}}>({match.nonStriker?.balls || 0})</span></div>
+            <div style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--muted)", opacity: 0.6 }}>TAP</div>
+          </div>
+          {/* BOWLER */}
+          <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,107,53,0.3)", borderRadius: "var(--rad)", padding: "6px 8px" }}>
+            <div style={{ fontSize: 9, color: "var(--accent2)", letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>BOWLING</div>
+            <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.currentBowler?.name || "—"}</div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>{match.currentBowler?.wickets || 0}/{match.currentBowler?.runs || 0}</div>
+          </div>
         </div>
       </div>
+
+      {/* ── DECLARE RUNS DIALOG ── */}
+      {declareDialog && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad2)", padding: 22, width: "100%", maxWidth: 340, animation: "fadeInUp 0.3s ease" }}>
+            <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 13, letterSpacing: 2, marginBottom: 6 }}>
+              DECLARE RUNS
+            </div>
+            <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 14 }}>
+              {declareDialog === "striker" ? match.striker?.name : match.nonStriker?.name} — enter runs scored this ball
+            </div>
+            {/* quick run buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(r => (
+                <button key={r} onClick={() => setDeclareRuns(String(r))} style={{ padding: "10px 0", background: declareRuns === String(r) ? "var(--accent)" : "var(--bg3)", color: declareRuns === String(r) ? "#000" : "var(--text)", border: `1px solid ${declareRuns === String(r) ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 16, cursor: "pointer" }}>{r}</button>
+              ))}
+            </div>
+            {/* custom input */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ color: "var(--muted)", fontSize: 11, marginBottom: 5, letterSpacing: 1 }}>OR TYPE CUSTOM RUNS</div>
+              <input
+                type="number" min="0" value={declareRuns}
+                onChange={e => setDeclareRuns(e.target.value)}
+                placeholder="e.g. 5"
+                style={{ width: "100%", padding: "10px 12px", background: "var(--bg3)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontSize: 18, outline: "none" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setDeclareDialog(null); setDeclareRuns(""); }} style={{ flex: 1, padding: 11, background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleDeclare} disabled={declareRuns === ""} style={{ flex: 2, padding: 11, background: declareRuns !== "" ? "var(--accent)" : "var(--bg3)", color: declareRuns !== "" ? "#000" : "var(--muted)", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: declareRuns !== "" ? "pointer" : "default", letterSpacing: 1 }}>CONFIRM RUNS</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
 
@@ -649,12 +712,85 @@ function TableRow({ cells, header }) {
   );
 }
 
+// ─── HISTORY SCREEN ────────────────────────────────────────────────────────────
+function HistoryScreen({ onBack, onView }) {
+  const [records, setRecords] = useState([]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("cricscan_history") || "[]");
+      setRecords(saved.reverse());
+    } catch { setRecords([]); }
+  }, []);
+
+  const deleteRecord = (id) => {
+    const updated = records.filter(r => r.id !== id);
+    setRecords(updated);
+    localStorage.setItem("cricscan_history", JSON.stringify([...updated].reverse()));
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "linear-gradient(135deg, #0a1520, #0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 20, cursor: "pointer" }}>←</button>
+        <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 14, letterSpacing: 2 }}>MATCH HISTORY</div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+        {records.length === 0 ? (
+          <div style={{ textAlign: "center", color: "var(--muted)", marginTop: 60, fontSize: 15 }}>No matches recorded yet.<br />Play a match to see history!</div>
+        ) : records.map(r => (
+          <div key={r.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", padding: 14, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>{r.teams[0].name} vs {r.teams[1].name}</div>
+                <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 2 }}>{r.date} · {r.overs} overs</div>
+                <div style={{ color: "var(--accent2)", fontSize: 13, marginTop: 4, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>{r.result}</div>
+              </div>
+              <button onClick={() => deleteRecord(r.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 18, cursor: "pointer" }}>🗑</button>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              {r.teams.map((t, i) => (
+                <div key={i} style={{ flex: 1, background: "var(--bg3)", borderRadius: "var(--rad)", padding: "6px 10px" }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.name}</div>
+                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, color: "var(--text)", fontWeight: 700 }}>{t.score}/{t.wickets}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{over(t.balls)} ov</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => onView(r)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: "rgba(0,229,255,0.08)", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 13, letterSpacing: 1, cursor: "pointer" }}>VIEW SCORECARD</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState("setup"); // setup | camera | scoring | scorecard | result
+  const [screen, setScreen] = useState("setup"); // setup | camera | scoring | scorecard | result | history
   const [match, setMatch] = useState(null);
   const [showWicket, setShowWicket] = useState(false);
   const [showBowlerSelect, setShowBowlerSelect] = useState(false);
+  const [historyMatch, setHistoryMatch] = useState(null);
+  const [showStrikeSwap, setShowStrikeSwap] = useState(false);
+
+  // ── Restore live match on reload ──
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cricscan_live");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.ended) { setMatch(parsed); setScreen("scoring"); }
+      }
+    } catch {}
+  }, []);
+
+  // ── Auto-save live match every time it changes ──
+  useEffect(() => {
+    if (match && !match.ended) {
+      try { localStorage.setItem("cricscan_live", JSON.stringify(match)); } catch {}
+    }
+  }, [match]);
 
   const startMatch = useCallback(({ team1name, team2name, overs, players1, players2 }) => {
     const mkPlayers = (names) => names.map(n => ({ name: n, runs: 0, balls: 0, fours: 0, sixes: 0, dismissed: false, dismissal: "", ballsBowled: 0, overs: 0, wickets: 0, maidens: 0, runsConceded: 0 }));
@@ -707,23 +843,23 @@ export default function App() {
       bt.players[nm.strikerIdx] = { ...bt.players[nm.strikerIdx], runs: striker.runs, balls: striker.balls, fours: striker.fours, sixes: striker.sixes };
       bw.players[nm.currentBowlerIdx] = { ...bw.players[nm.currentBowlerIdx], runs: bowler.runs, ballsBowled: bowler.ballsBowled };
 
-      // strike rotation
-      if (isLegal && (runs % 2 === 1)) {
-        const tmp = nm.striker; nm.striker = nm.nonStriker; nm.nonStriker = tmp;
-        const tmpI = nm.strikerIdx; nm.strikerIdx = nm.nonStrikerIdx; nm.nonStrikerIdx = tmpI;
-      }
-
-      // over end
+      // over end check (before strike rotation)
       const overBalls = bt.balls % 6;
-      if (isLegal && overBalls === 0 && bt.balls > 0) {
-        // swap strike
-        const tmp2 = nm.striker; nm.striker = nm.nonStriker; nm.nonStriker = tmp2;
-        const tmpI2 = nm.strikerIdx; nm.strikerIdx = nm.nonStrikerIdx; nm.nonStrikerIdx = tmpI2;
+      const overEnded = isLegal && overBalls === 0 && bt.balls > 0;
+      if (overEnded) {
         bt.overs.push([]);
         nm.needBowler = true;
+        // auto swap at over end
+        const tmp2 = nm.striker; nm.striker = nm.nonStriker; nm.nonStriker = tmp2;
+        const tmpI2 = nm.strikerIdx; nm.strikerIdx = nm.nonStrikerIdx; nm.nonStrikerIdx = tmpI2;
       } else {
         if (!bt.overs.length) bt.overs.push([]);
         bt.overs[bt.overs.length - 1].push({ runs, type });
+      }
+
+      // strike rotation — for odd runs, ask user (set flag)
+      if (isLegal && !overEnded && runs % 2 === 1) {
+        nm.pendingStrikeSwap = true;
       }
 
       // history for undo
@@ -797,7 +933,32 @@ export default function App() {
       nm.ended = true;
       return nm;
     });
-    if (match?.inning === 1) setScreen("result");
+    if (match?.inning === 1) {
+      // save to history
+      try {
+        const m = match;
+        const [t0, t1] = m.teams;
+        let result = "";
+        if (t0.score > t1.score) result = `${t0.name} won by ${t0.score - t1.score} runs`;
+        else if (t1.score > t0.score) result = `${t1.name} won by ${10 - t1.wickets} wickets`;
+        else result = "Match Tied";
+        const record = {
+          id: Date.now(),
+          date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+          overs: m.overs,
+          teams: [
+            { name: t0.name, score: t0.score, wickets: t0.wickets, balls: t0.balls, players: t0.players, extras: t0.extras, fow: t0.fow },
+            { name: t1.name, score: t1.score, wickets: t1.wickets, balls: t1.balls, players: t1.players, extras: t1.extras, fow: t1.fow }
+          ],
+          result,
+        };
+        const prev = JSON.parse(localStorage.getItem("cricscan_history") || "[]");
+        prev.push(record);
+        localStorage.setItem("cricscan_history", JSON.stringify(prev));
+        localStorage.removeItem("cricscan_live");
+      } catch {}
+      setScreen("result");
+    }
   };
 
   const confirmBowler = (name) => {
@@ -815,9 +976,22 @@ export default function App() {
   useEffect(() => {
     if (match?.needBowler && !showBowlerSelect) setShowBowlerSelect(true);
     if (match?.needInningsEnd) handleEndInnings();
-  }, [match?.needBowler, match?.needInningsEnd]);
+    if (match?.pendingStrikeSwap && !showStrikeSwap) setShowStrikeSwap(true);
+  }, [match?.needBowler, match?.needInningsEnd, match?.pendingStrikeSwap]);
 
-  // check innings end automatically
+  const confirmStrikeSwap = (doSwap) => {
+    setShowStrikeSwap(false);
+    setMatch(m => {
+      const nm = JSON.parse(JSON.stringify(m));
+      nm.pendingStrikeSwap = false;
+      if (doSwap) {
+        const tmp = nm.striker; nm.striker = nm.nonStriker; nm.nonStriker = tmp;
+        const tmpI = nm.strikerIdx; nm.strikerIdx = nm.nonStrikerIdx; nm.nonStrikerIdx = tmpI;
+      }
+      return nm;
+    });
+  };
+
   useEffect(() => {
     if (!match) return;
     const bt = match.teams[match.batting];
@@ -827,10 +1001,21 @@ export default function App() {
     }
   }, [match?.teams?.[0]?.balls, match?.teams?.[1]?.balls, match?.teams?.[0]?.wickets, match?.teams?.[1]?.wickets]);
 
+  const handleNewMatch = () => {
+    localStorage.removeItem("cricscan_live");
+    setMatch(null);
+    setScreen("setup");
+  };
+
   return (
     <>
       <FontLink />
-      {screen === "setup" && <SetupScreen onStart={startMatch} />}
+      {screen === "setup" && (
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setScreen("history")} style={{ position: "absolute", top: 20, right: 16, zIndex: 10, background: "var(--bg3)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: "var(--rad)", padding: "6px 12px", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 13, letterSpacing: 1, cursor: "pointer" }}>📋 HISTORY</button>
+          <SetupScreen onStart={startMatch} />
+        </div>
+      )}
       {screen === "camera" && (
         <CameraSetup
           onDone={zones => { setMatch(m => ({ ...m, zones })); setScreen("scoring"); }}
@@ -842,6 +1027,7 @@ export default function App() {
           <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--bg2)" }}>
             <NavBtn active={true} label="SCORE" />
             <NavBtn onClick={() => setScreen("scorecard")} label="CARD" />
+            <NavBtn onClick={() => setScreen("history")} label="HISTORY" />
           </div>
           <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} />
           {showWicket && (
@@ -859,10 +1045,44 @@ export default function App() {
               onSelect={confirmBowler}
             />
           )}
+          {showStrikeSwap && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
+              <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad2)", padding: 22, width: "100%", maxWidth: 340, animation: "fadeInUp 0.3s ease", textAlign: "center" }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
+                <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 14, letterSpacing: 2, marginBottom: 8 }}>CHANGE STRIKE?</div>
+                <div style={{ color: "var(--muted)", fontSize: 14, marginBottom: 6 }}>
+                  <span style={{ color: "var(--accent)", fontWeight: 700 }}>{match.striker?.name}</span> scored an odd number of runs.
+                </div>
+                <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
+                  Should strike go to <span style={{ color: "var(--text)", fontWeight: 600 }}>{match.nonStriker?.name}</span>?
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => confirmStrikeSwap(false)} style={{ flex: 1, padding: "12px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1 }}>
+                    NO CHANGE
+                  </button>
+                  <button onClick={() => confirmStrikeSwap(true)} style={{ flex: 1, padding: "12px 0", background: "var(--accent)", color: "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>
+                    YES SWAP ✓
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
       {screen === "scorecard" && match && <ScorecardScreen match={match} onBack={() => setScreen("scoring")} />}
-      {screen === "result" && match && <ResultScreen match={match} onNewMatch={() => setScreen("setup")} />}
+      {screen === "result" && match && <ResultScreen match={match} onNewMatch={handleNewMatch} />}
+      {screen === "history" && (
+        <HistoryScreen
+          onBack={() => setScreen(match ? "scoring" : "setup")}
+          onView={r => { setHistoryMatch(r); setScreen("historycard"); }}
+        />
+      )}
+      {screen === "historycard" && historyMatch && (
+        <ScorecardScreen
+          match={{ teams: historyMatch.teams, batting: 0, bowling: 1 }}
+          onBack={() => setScreen("history")}
+        />
+      )}
     </>
   );
 }
