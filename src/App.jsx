@@ -676,51 +676,170 @@ function ScorecardScreen({match,onBack}){
 
 // ── RESULT SCREEN ─────────────────────────────────────────────────────────────
 function ResultScreen({match,onNewMatch}){
-  const [potm,setPotm]=useState("");
+  const [tab,setTab]=useState("awards"); // awards | innings1 | innings2 | innings3 | innings4
   const [t0,t1]=match.teams;
+  const isTest=match.format==="test";
+
+  // ── Auto-analyse all players ──
   const all=[...t0.players.map(p=>({...p,team:t0.name})),...t1.players.map(p=>({...p,team:t1.name}))];
-  const bestBatter=all.reduce((a,b)=>(b.runs||0)>(a.runs||0)?b:a,all[0]);
+
+  // POTM score = weighted formula
+  const potmScore=p=>{
+    const batSR=p.balls>0?(p.runs/p.balls)*100:0;
+    const batScore=(p.runs||0)*1.2 + (p.fours||0)*0.5 + (p.sixes||0)*1.5 + (batSR>130?10:batSR>100?5:0);
+    const bowlEco=p.ballsBowled>0?(p.runsConceded/p.ballsBowled)*6:99;
+    const bowlScore=(p.wickets||0)*25 + (bowlEco<6?10:bowlEco<8?5:0) + (p.maidens||0)*5;
+    const fieldScore=((p.catches||0)+(p.runOuts||0))*10 + (p.stumpings||0)*12;
+    return batScore+bowlScore+fieldScore;
+  };
+
+  const potm=all.reduce((a,b)=>potmScore(b)>potmScore(a)?b:a,all[0]);
+
+  // Best batter = most runs, tiebreak by SR
+  const bestBatter=all.filter(p=>(p.balls||0)>0).reduce((a,b)=>{
+    if((b.runs||0)!==(a.runs||0))return(b.runs||0)>(a.runs||0)?b:a;
+    return((b.runs/b.balls)>(a.runs/a.balls))?b:a;
+  },all[0]);
+
+  // Best bowler = most wickets, tiebreak by economy
   const bowlers=all.filter(p=>(p.ballsBowled||0)>0);
-  const bestBowler=bowlers.length?bowlers.reduce((a,b)=>(b.wickets||0)>(a.wickets||0)?b:a,bowlers[0]):null;
+  const bestBowler=bowlers.length?bowlers.reduce((a,b)=>{
+    if((b.wickets||0)!==(a.wickets||0))return(b.wickets||0)>(a.wickets||0)?b:a;
+    const ea=(a.runsConceded||0)/(a.ballsBowled||1);const eb=(b.runsConceded||0)/(b.ballsBowled||1);
+    return eb<ea?b:a;
+  },bowlers[0]):null;
+
+  // Best fielder = most dismissals
   const bestFielder=all.reduce((a,b)=>((b.catches||0)+(b.runOuts||0)+(b.stumpings||0))>((a.catches||0)+(a.runOuts||0)+(a.stumpings||0))?b:a,all[0]);
-  const impactful=all.reduce((a,b)=>((b.runs||0)+(b.wickets||0)*20)>((a.runs||0)+(a.wickets||0)*20)?b:a,all[0]);
+
+  // Impact player = highest potm score excluding POTM winner (so 2 different players)
+  const impact=all.filter(p=>p.name!==potm.name).reduce((a,b)=>potmScore(b)>potmScore(a)?b:a,all.find(p=>p.name!==potm.name)||all[0]);
+
   const result=t0.score>t1.score?`${t0.name} won by ${t0.score-t1.score} runs!`:t1.score>t0.score?`${t1.name} won by ${10-t1.wickets} wickets!`:"Match Tied!";
 
+  // For test: build innings history from match.inningsHistory
+  const innings=match.inningsHistory||[];
+
+  const tabs=["awards",...(isTest?innings.map((_,i)=>`inn${i}`):[])];
+
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at top,#0d2030 0%,#080c10 70%)",display:"flex",flexDirection:"column",padding:18,paddingBottom:30}}>
-      <div style={{textAlign:"center",marginBottom:24,animation:"fadeInUp 0.5s ease"}}>
-        <div style={{fontSize:52,marginBottom:10}}>🏆</div>
-        <div style={{fontFamily:"Orbitron",fontSize:20,color:"var(--gold)",marginBottom:8,lineHeight:1.3}} className="glow-o">{result}</div>
-        <div style={{background:"var(--card)",borderRadius:"var(--rad)",padding:"10px 14px",display:"inline-flex",gap:16,border:"1px solid var(--border)"}}>
-          {[t0,t1].map((t,i)=>(<div key={i} style={{textAlign:"center"}}><div style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div><div style={{fontFamily:"Orbitron",fontSize:18,color:"var(--text)",fontWeight:700}}>{t.score}/{t.wickets}</div><div style={{fontSize:10,color:"var(--muted)"}}>{overStr(t.balls)} ov</div></div>))}
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at top,#0d2030 0%,#080c10 70%)",display:"flex",flexDirection:"column",paddingBottom:30}}>
+
+      {/* Result banner */}
+      <div style={{textAlign:"center",padding:"24px 18px 16px",animation:"fadeInUp 0.5s ease"}}>
+        <div style={{fontSize:50,marginBottom:8}}>🏆</div>
+        <div style={{fontFamily:"Orbitron",fontSize:20,color:"var(--gold)",marginBottom:10,lineHeight:1.3}} className="glow-o">{result}</div>
+        <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+          {[t0,t1].map((t,i)=>(<div key={i} style={{background:"var(--card)",borderRadius:"var(--rad)",padding:"8px 14px",border:"1px solid var(--border)",textAlign:"center"}}>
+            <div style={{fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div>
+            <div style={{fontFamily:"Orbitron",fontSize:18,color:"var(--text)",fontWeight:700}}>{t.score}<span style={{color:"var(--danger)",fontSize:13}}>/{t.wickets}</span></div>
+            <div style={{fontSize:10,color:"var(--muted)"}}>{overStr(t.balls)} ov</div>
+          </div>))}
         </div>
       </div>
 
-      {/* Player of the Match — user selects */}
-      <Card title="🏅 PLAYER OF THE MATCH" style={{marginBottom:14}}>
-        <select value={potm} onChange={e=>setPotm(e.target.value)} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:potm?"var(--gold)":"var(--muted)",border:`1px solid ${potm?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:potm?10:0}}>
-          <option value="">— Select Player of the Match —</option>
-          {all.map((p,i)=><option key={i} value={p.name}>{p.name} ({p.team})</option>)}
-        </select>
-        {potm&&(
-          <div style={{background:"rgba(255,215,0,0.08)",border:"1px solid rgba(255,215,0,0.3)",borderRadius:"var(--rad)",padding:"10px 14px",textAlign:"center"}}>
-            <div style={{fontSize:22}}>⭐</div>
-            <div style={{fontFamily:"Orbitron",color:"var(--gold)",fontSize:16,fontWeight:700,marginTop:4}}>{potm}</div>
+      {/* Tabs */}
+      <div style={{display:"flex",borderBottom:"1px solid var(--border)",background:"var(--bg2)",overflowX:"auto"}}>
+        <NavBtn active={tab==="awards"} onClick={()=>setTab("awards")} label="AWARDS"/>
+        {isTest&&innings.map((inn,i)=>(<NavBtn key={i} active={tab===`inn${i}`} onClick={()=>setTab(`inn${i}`)} label={`INN ${i+1}`}/>))}
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:16}}>
+
+        {/* ── AWARDS TAB ── */}
+        {tab==="awards"&&<>
+          {/* POTM — auto selected */}
+          <Card title="🏅 PLAYER OF THE MATCH" style={{marginBottom:14}}>
+            <div style={{background:"rgba(255,215,0,0.07)",border:"1px solid rgba(255,215,0,0.25)",borderRadius:"var(--rad)",padding:"14px 16px",textAlign:"center"}}>
+              <div style={{fontSize:32,marginBottom:6}}>⭐</div>
+              <div style={{fontFamily:"Orbitron",color:"var(--gold)",fontSize:18,fontWeight:700,marginBottom:4}}>{potm.name}</div>
+              <div style={{color:"var(--muted)",fontSize:12,fontFamily:"Barlow Condensed"}}>{potm.team}</div>
+              <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:8,flexWrap:"wrap"}}>
+                {(potm.runs||0)>0&&<span style={{background:"var(--bg3)",borderRadius:10,padding:"2px 8px",fontSize:11,color:"var(--accent)",fontFamily:"Barlow Condensed",fontWeight:700}}>{potm.runs}r ({potm.balls}b)</span>}
+                {(potm.wickets||0)>0&&<span style={{background:"var(--bg3)",borderRadius:10,padding:"2px 8px",fontSize:11,color:"var(--accent2)",fontFamily:"Barlow Condensed",fontWeight:700}}>{potm.wickets}w/{potm.runsConceded}r</span>}
+                {((potm.catches||0)+(potm.runOuts||0)+(potm.stumpings||0))>0&&<span style={{background:"var(--bg3)",borderRadius:10,padding:"2px 8px",fontSize:11,color:"var(--accent3)",fontFamily:"Barlow Condensed",fontWeight:700}}>{(potm.catches||0)+(potm.runOuts||0)+(potm.stumpings||0)} dismissal{(potm.catches||0)+(potm.runOuts||0)+(potm.stumpings||0)>1?"s":""}</span>}
+              </div>
+              <div style={{color:"var(--muted)",fontSize:10,marginTop:8,fontFamily:"Barlow Condensed",letterSpacing:1}}>AUTO-SELECTED BY AI ANALYSIS</div>
+            </div>
+          </Card>
+
+          <Card title="MATCH AWARDS" style={{marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <AwardCard icon="🏏" title="BEST BATTER" name={bestBatter?.name} stat={`${bestBatter?.runs||0}r (${bestBatter?.balls||0}b) SR:${bestBatter?.balls>0?((bestBatter.runs/bestBatter.balls)*100).toFixed(0):0}`} color="var(--accent)"/>
+              <AwardCard icon="🎳" title="BEST BOWLER" name={bestBowler?.name||"—"} stat={bestBowler?`${bestBowler.wickets}w · Eco:${((bestBowler.runsConceded||0)/(bestBowler.ballsBowled||1)*6).toFixed(2)}`:"No wickets"} color="var(--accent2)"/>
+              <AwardCard icon="🧤" title="BEST FIELDER" name={bestFielder?.name} stat={`C:${bestFielder?.catches||0} RO:${bestFielder?.runOuts||0} St:${bestFielder?.stumpings||0}`} color="var(--accent3)"/>
+              <AwardCard icon="⚡" title="IMPACT PLAYER" name={impact?.name} stat={`${impact?.runs||0}r · ${impact?.wickets||0}w`} color="var(--gold)"/>
+            </div>
+          </Card>
+
+          {/* Performance summary */}
+          <Card title="PERFORMANCE SUMMARY" style={{marginBottom:20}}>
+            {all.sort((a,b)=>potmScore(b)-potmScore(a)).slice(0,5).map((p,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontFamily:"Orbitron",fontSize:12,color:i===0?"var(--gold)":"var(--muted)",width:20}}>#{i+1}</div>
+                  <div>
+                    <div style={{fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,color:"var(--text)"}}>{p.name}</div>
+                    <div style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>{p.team}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                    {(p.runs||0)>0&&<span style={{fontSize:11,color:"var(--accent)",fontFamily:"Barlow Condensed",fontWeight:700}}>{p.runs}r</span>}
+                    {(p.wickets||0)>0&&<span style={{fontSize:11,color:"var(--accent2)",fontFamily:"Barlow Condensed",fontWeight:700}}>{p.wickets}w</span>}
+                    {((p.catches||0)+(p.runOuts||0))>0&&<span style={{fontSize:11,color:"var(--accent3)",fontFamily:"Barlow Condensed",fontWeight:700}}>{(p.catches||0)+(p.runOuts||0)}f</span>}
+                  </div>
+                  <div style={{fontSize:10,color:"var(--border)",fontFamily:"Barlow Condensed"}}>score: {potmScore(p).toFixed(0)}</div>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </>}
+
+        {/* ── INNINGS TABS (Test only) ── */}
+        {isTest&&innings.map((inn,i)=>tab===`inn${i}`&&(
+          <div key={i}>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:14,marginBottom:14}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:4}}>INNINGS {i+1} — {inn.teamName}</div>
+              <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:24,fontWeight:900,marginBottom:4}}>{inn.score}<span style={{color:"var(--danger)",fontSize:16}}>/{inn.wickets}</span></div>
+              <div style={{display:"flex",gap:14,color:"var(--muted)",fontSize:12}}>
+                <span>Overs: {overStr(inn.balls)}</span>
+                <span>RR: {calcRR(inn.score,inn.balls)}</span>
+              </div>
+              {inn.extras&&<div style={{color:"var(--muted)",fontSize:11,marginTop:4}}>Extras: {Object.values(inn.extras).reduce((a,b)=>a+b,0)} (W:{inn.extras.wide} NB:{inn.extras.noBall} B:{inn.extras.bye} LB:{inn.extras.legBye})</div>}
+            </div>
+
+            <SectionHead>BATTING</SectionHead>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad)",overflow:"hidden",marginBottom:14}}>
+              <TableRow header cells={["BATTER","R","B","4s","6s","SR"]}/>
+              {(inn.players||[]).map((p,j)=>(
+                <TableRow key={j} cells={[
+                  <span key="n"><span style={{fontWeight:p.dismissed?400:600}}>{p.name}{!p.dismissed&&<span style={{color:"var(--accent3)",fontSize:9}}> *</span>}</span>{p.dismissed&&<span style={{display:"block",color:"var(--muted)",fontSize:9}}>{p.dismissal}{p.catchBy?` (${p.catchBy})`:""}</span>}</span>,
+                  p.runs||0,p.balls||0,p.fours||0,p.sixes||0,
+                  p.balls>0?((p.runs/p.balls)*100).toFixed(0):"-"
+                ]}/>
+              ))}
+            </div>
+
+            <SectionHead>BOWLING</SectionHead>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad)",overflow:"hidden",marginBottom:14}}>
+              <TableRow header cells={["BOWLER","O","M","R","W","ECO"]}/>
+              {(inn.bowlers||[]).filter(p=>(p.ballsBowled||0)>0).map((p,j)=>(
+                <TableRow key={j} cells={[p.name,overStr(p.ballsBowled||0),p.maidens||0,p.runsConceded||0,p.wickets||0,((p.runsConceded||0)/(p.ballsBowled||1)*6).toFixed(2)]}/>
+              ))}
+            </div>
+
+            {inn.fow?.length>0&&<>
+              <SectionHead>FALL OF WICKETS</SectionHead>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
+                {inn.fow.map((f,j)=>(<div key={j} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--rad)",padding:"3px 8px",fontSize:11,color:"var(--muted)"}}>{j+1}‑{f.score} ({f.name})</div>))}
+              </div>
+            </>}
           </div>
-        )}
-      </Card>
+        ))}
 
-      {/* Auto-calculated awards */}
-      <Card title="MATCH AWARDS" style={{marginBottom:20}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <AwardCard icon="🏏" title="BEST BATTER" name={bestBatter?.name} stat={`${bestBatter?.runs||0}r (${bestBatter?.balls||0}b) · SR ${bestBatter?.balls>0?((bestBatter.runs/bestBatter.balls)*100).toFixed(0):0}`} color="var(--accent)"/>
-          <AwardCard icon="🎳" title="BEST BOWLER" name={bestBowler?.name||"—"} stat={bestBowler?`${bestBowler.wickets}w / ${bestBowler.runsConceded}r`:"No wickets"} color="var(--accent2)"/>
-          <AwardCard icon="🧤" title="BEST FIELDER" name={bestFielder?.name} stat={`C:${bestFielder?.catches||0}  RO:${bestFielder?.runOuts||0}  St:${bestFielder?.stumpings||0}`} color="var(--accent3)"/>
-          <AwardCard icon="⚡" title="IMPACT PLAYER" name={impactful?.name} stat={`${impactful?.runs||0}r · ${impactful?.wickets||0}w`} color="var(--gold)"/>
-        </div>
-      </Card>
-
-      <button onClick={onNewMatch} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
+        <button onClick={onNewMatch} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
+      </div>
     </div>
   );
 }
@@ -866,11 +985,45 @@ export default function App(){
     });
   };
 
+  const saveInningsSnapshot=(nm)=>{
+    // Save a snapshot of current innings for test match scorecard
+    if(nm.format!=="test")return;
+    if(!nm.inningsLog)nm.inningsLog=[];
+    const bt=nm.teams[nm.batting];
+    const bw=nm.teams[nm.bowling];
+    nm.inningsLog.push({
+      teamName:bt.name,
+      label:`Innings ${nm.inning+1}`,
+      score:bt.score,wickets:bt.wickets,balls:bt.balls,
+      extras:{...bt.extras},
+      players:bt.players.map(p=>({...p})),
+      bowlers:bw.players.map(p=>({...p})),
+      fow:[...(bt.fow||[])],
+      commentary:[...(bt.commentary||[])],
+    });
+  };
+
   const saveHistory=m=>{
     try{
-      const [t0,t1]=m.teams;
+      // For test: save the final innings before result
+      let finalM=m;
+      if(m.format==="test"){
+        const nm=JSON.parse(JSON.stringify(m));
+        if(!nm.inningsHistory)nm.inningsHistory=[];
+        const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
+        nm.inningsHistory.push({
+          teamName:bt.name,score:bt.score,wickets:bt.wickets,balls:bt.balls,
+          extras:{...bt.extras},fow:[...(bt.fow||[])],
+          players:bt.players.map(p=>({...p})),
+          bowlers:bw.players.filter(p=>(p.ballsBowled||0)>0).map(p=>({...p})),
+        });
+        finalM=nm;
+      }
+      const m2=finalM;
+      const [t0,t1]=m2.teams;
       const result=t0.score>t1.score?`${t0.name} won by ${t0.score-t1.score} runs`:t1.score>t0.score?`${t1.name} won by ${10-t1.wickets} wickets`:"Match Tied";
-      const rec={id:Date.now(),date:new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}),overs:m.overs,format:m.format,ballType:m.ballType,
+      const rec={id:Date.now(),date:new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}),overs:m2.overs,format:m2.format,ballType:m2.ballType,
+        inningsHistory:m2.inningsHistory||[],
         teams:[{name:t0.name,score:t0.score,wickets:t0.wickets,balls:t0.balls,players:t0.players,extras:t0.extras,fow:t0.fow,commentary:t0.commentary},{name:t1.name,score:t1.score,wickets:t1.wickets,balls:t1.balls,players:t1.players,extras:t1.extras,fow:t1.fow,commentary:t1.commentary}],result};
       const prev=JSON.parse(localStorage.getItem("cricscan_history")||"[]");prev.push(rec);
       localStorage.setItem("cricscan_history",JSON.stringify(prev));localStorage.removeItem("cricscan_live");
@@ -881,6 +1034,7 @@ export default function App(){
     setMatch(m=>{
       if(!m)return m;
       const nm=JSON.parse(JSON.stringify(m));
+      saveInningsSnapshot(nm);
       const maxInnings=nm.format==="test"?3:1;
       if(nm.inning<maxInnings){
         nm.inning++;const nb=nm.inning%2;const nw=1-nb;
@@ -888,7 +1042,24 @@ export default function App(){
         const p=nm.teams[nb].players;
         nm.striker={...p[0]};nm.strikerIdx=0;nm.nonStriker={...p[1]};nm.nonStrikerIdx=1;nm.nextBatterIdx=2;
         nm.currentBowler={...nm.teams[nw].players[0]};nm.currentBowlerIdx=0;nm.needBowler=false;
-        if(nm.format==="test"){nm.teams[nb].players.forEach(p=>{p.runs=0;p.balls=0;p.dismissed=false;p.dismissal="";p.catchBy="";});nm.teams[nb].score=0;nm.teams[nb].wickets=0;nm.teams[nb].balls=0;nm.teams[nb].overs=[];nm.teams[nb].fow=[];}
+        if(nm.format==="test"){
+          // Save completed innings snapshot before resetting
+          if(!nm.inningsHistory)nm.inningsHistory=[];
+          const completedTeam=nm.teams[nm.batting];
+          const bowlingTeam=nm.teams[nm.bowling];
+          nm.inningsHistory.push({
+            teamName:completedTeam.name,
+            score:completedTeam.score,wickets:completedTeam.wickets,balls:completedTeam.balls,
+            extras:{...completedTeam.extras},fow:[...(completedTeam.fow||[])],
+            players:completedTeam.players.map(p=>({...p})),
+            bowlers:bowlingTeam.players.filter(p=>(p.ballsBowled||0)>0).map(p=>({...p})),
+          });
+          // Reset batting team for next innings
+          nm.teams[nb].players.forEach(p=>{p.runs=0;p.balls=0;p.dismissed=false;p.dismissal="";p.catchBy="";p.fours=0;p.sixes=0;});
+          nm.teams[nb].score=0;nm.teams[nb].wickets=0;nm.teams[nb].balls=0;nm.teams[nb].overs=[];nm.teams[nb].fow=[];nm.teams[nb].commentary=[];
+          // Reset bowling team's bowling stats for new innings
+          nm.teams[nw].players.forEach(p=>{p.ballsBowled=0;p.runsConceded=0;p.wickets=0;p.maidens=0;});
+        }
         return nm;
       }
       nm.ended=true;return nm;
@@ -954,7 +1125,7 @@ export default function App(){
         </>
       )}
       {screen==="scorecard"&&match&&<ScorecardScreen match={match} onBack={()=>setScreen("scoring")}/>}
-      {screen==="result"&&match&&<ResultScreen match={match} onNewMatch={handleNewMatch}/>}
+      {screen==="result"&&match&&<ResultScreen match={{...match,inningsHistory:match.inningsHistory||[]}} onNewMatch={handleNewMatch}/>}
       {screen==="history"&&<HistoryScreen onBack={()=>setScreen(match?"scoring":"setup")} onView={r=>{setHistoryMatch(r);setScreen("historycard");}}/>}
       {screen==="historycard"&&historyMatch&&<ScorecardScreen match={{teams:historyMatch.teams,batting:0,bowling:1,format:historyMatch.format,ballType:historyMatch.ballType}} onBack={()=>setScreen("history")}/>}
     </>
