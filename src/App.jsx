@@ -224,27 +224,50 @@ function SetupScreen({onStart}){
 
         {step===1 && (
           <div style={{animation:"fadeInUp 0.3s ease"}}>
-            <Card title="SQUAD SETUP" style={{marginBottom:16}}>
+            <Card title="SQUAD SETUP" style={{marginBottom:12}}>
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 {[team1,team2].map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{flex:1,padding:"8px 0",background:tab===i?"var(--accent2)":"var(--bg3)",color:tab===i?"#fff":"var(--muted)",border:`1px solid ${tab===i?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{t}</button>))}
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {(tab===0?players1:players2).map((p,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
-                    <span style={{color:"var(--muted)",fontSize:11,minWidth:16,fontFamily:"Orbitron"}}>{i+1}</span>
-                    <input value={p} onChange={e=>upd(tab,i,e.target.value)} style={{flex:1,padding:"6px 8px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:13}} />
-                  </div>
-                ))}
+              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                {(tab===0?players1:players2).map((p,i)=>{
+                  const isCap=tab===0?captain1===i:captain2===i;
+                  const isWk=tab===0?wk1===i:wk2===i;
+                  const setCap=tab===0?setCaptain1:setCaptain2;
+                  const setWkFn=tab===0?setWk1:setWk2;
+                  return (
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{color:"var(--muted)",fontSize:10,minWidth:14,fontFamily:"Orbitron",textAlign:"center"}}>{i+1}</span>
+                      <input value={p} onChange={e=>upd(tab,i,e.target.value)} style={{flex:1,padding:"6px 8px",background:"var(--bg3)",color:"var(--text)",border:`1px solid ${isCap||isWk?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:13}} />
+                      <button onClick={()=>setCap(i)} title="Set Captain" style={{width:28,height:28,background:isCap?"rgba(255,215,0,0.25)":"var(--bg3)",color:isCap?"var(--gold)":"var(--muted)",border:`1px solid ${isCap?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:11,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>C</button>
+                      <button onClick={()=>setWkFn(i)} title="Set Wicketkeeper" style={{width:28,height:28,background:isWk?"rgba(0,229,255,0.2)":"var(--bg3)",color:isWk?"var(--accent)":"var(--muted)",border:`1px solid ${isWk?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:9,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>WK</button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{marginTop:8,fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>
+                Tap <b style={{color:"var(--gold)"}}>C</b> to set Captain &nbsp;·&nbsp; <b style={{color:"var(--accent)"}}>WK</b> to set Wicketkeeper
               </div>
             </Card>
 
-            <div style={{display:"flex",gap:8}}>
+            <Card title="🪙 TOSS" style={{marginBottom:14}}>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:5,letterSpacing:1}}>WHO WON THE TOSS?</div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                {[team1,team2].map((t,i)=>(<button key={i} onClick={()=>setTossWinner(i)} style={{flex:1,padding:"8px 0",background:tossWinner===i?"rgba(255,215,0,0.15)":"var(--bg3)",color:tossWinner===i?"var(--gold)":"var(--muted)",border:`1px solid ${tossWinner===i?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{t}</button>))}
+              </div>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:5,letterSpacing:1}}>ELECTED TO?</div>
+              <div style={{display:"flex",gap:8}}>
+                {[["bat","🏏 Bat First"],["bowl","🎳 Bowl First"]].map(([v,l])=>(<button key={v} onClick={()=>setTossChoice(v)} style={{flex:1,padding:"9px 0",background:tossChoice===v?"rgba(57,255,20,0.1)":"var(--bg3)",color:tossChoice===v?"var(--accent3)":"var(--muted)",border:`1px solid ${tossChoice===v?"var(--accent3)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{l}</button>))}
+              </div>
+            </Card>
+
+            <div style={{display:"flex",gap:8,marginBottom:10}}>
               <button onClick={()=>setStep(0)} style={{flex:1,padding:"13px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>← BACK</button>
-              <button onClick={()=>onStart({team1,team2,overs:format==="test"?9999:overs,format,ballType,players1:players1.filter(Boolean),players2:players2.filter(Boolean)})}
+              <button onClick={()=>onStart({team1,team2,overs:format==="test"?9999:overs,format,ballType,players1:players1.filter(Boolean),players2:players2.filter(Boolean),captain1,captain2,wk1,wk2,tossWinner,tossChoice})}
                 style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer",animation:"pulse-border 2s infinite"}}>
                 START MATCH ▶
               </button>
             </div>
+            <button onClick={clearSaved} style={{width:"100%",padding:"8px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
           </div>
         )}
       </div>
