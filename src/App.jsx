@@ -1,637 +1,516 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
-// ── Fonts ──────────────────────────────────────────────────────────────────────
 const FontLink = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Orbitron:wght@700;900&display=swap');
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #080c10;
-      --bg2: #0e1318;
-      --bg3: #151c24;
-      --card: #111820;
-      --border: #1e2d3d;
-      --accent: #00e5ff;
-      --accent2: #ff6b35;
-      --accent3: #39ff14;
-      --gold: #ffd700;
-      --text: #e8f4f8;
-      --muted: #4a6278;
-      --danger: #ff3d5a;
-      --success: #39ff14;
-      --rad: 6px;
-      --rad2: 12px;
+      --bg:#080c10; --bg2:#0e1318; --bg3:#151c24; --card:#111820; --border:#1e2d3d;
+      --accent:#00e5ff; --accent2:#ff6b35; --accent3:#39ff14; --gold:#ffd700;
+      --text:#e8f4f8; --muted:#4a6278; --danger:#ff3d5a; --rad:6px; --rad2:12px;
     }
-
-    body { background: var(--bg); color: var(--text); font-family: 'Barlow Condensed', sans-serif; overflow-x: hidden; }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: var(--bg2); }
-    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
-
-    /* glow utility */
-    .glow { text-shadow: 0 0 18px var(--accent), 0 0 40px var(--accent); }
-    .glow-o { text-shadow: 0 0 14px var(--accent2); }
-
-    /* shimmer line */
-    @keyframes shimmer {
-      0% { background-position: -200% center; }
-      100% { background-position: 200% center; }
-    }
-    .shimmer-text {
-      background: linear-gradient(90deg, var(--accent) 0%, #fff 50%, var(--accent) 100%);
-      background-size: 200% auto;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: shimmer 3s linear infinite;
-    }
-
-    @keyframes pulse-border {
-      0%,100% { box-shadow: 0 0 0 0 rgba(0,229,255,0.4); }
-      50% { box-shadow: 0 0 0 6px rgba(0,229,255,0); }
-    }
-
-    @keyframes fadeInUp {
-      from { opacity:0; transform:translateY(16px); }
-      to { opacity:1; transform:translateY(0); }
-    }
-
-    @keyframes scanline {
-      0% { top: -5%; }
-      100% { top: 105%; }
-    }
-
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-    .blink { animation: blink 1s infinite; }
-
-    @keyframes bounce-in {
-      0% { transform:scale(0.5); opacity:0; }
-      60% { transform:scale(1.15); opacity:1; }
-      100% { transform:scale(1); }
-    }
-    .bounce-in { animation: bounce-in 0.4s ease forwards; }
+    body { background:var(--bg); color:var(--text); font-family:"Barlow Condensed",sans-serif; overflow-x:hidden; }
+    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:var(--bg2)} ::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px}
+    .glow{text-shadow:0 0 18px var(--accent),0 0 40px var(--accent)}
+    .glow-o{text-shadow:0 0 14px var(--accent2)}
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,0.4)}50%{box-shadow:0 0 0 6px rgba(0,229,255,0)}}
+    @keyframes bounce-in{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+    .blink{animation:blink 1s infinite}
+    .bounce-in{animation:bounce-in 0.4s ease forwards}
+    input,select{outline:none}
+    .pill-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:"Barlow Condensed";font-weight:700;font-size:13px;cursor:pointer;letter-spacing:1px;transition:all 0.15s}
+    .pill-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
   `}</style>
 );
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-const over = (b) => `${Math.floor(b / 6)}.${b % 6}`;
+const overStr = b => `${Math.floor(b/6)}.${b%6}`;
+const calcRR = (score,balls) => balls>0?((score/balls)*6).toFixed(2):"0.00";
+const calcRRR = (target,score,ballsLeft) => ballsLeft<=0?"—":(((target-score)/ballsLeft)*6).toFixed(2);
 
-function initTeam(name) {
-  return { name, players: [], score: 0, wickets: 0, balls: 0, extras: { wide: 0, noBall: 0, bye: 0, legBye: 0 }, overs: [] };
+function mkPlayer(name){ return {name,runs:0,balls:0,fours:0,sixes:0,dismissed:false,dismissal:"",catchBy:"",ballsBowled:0,runsConceded:0,wickets:0,maidens:0,catches:0,runOuts:0,stumpings:0}; }
+function mkTeam(name,playerNames){ return {name,players:playerNames.map(mkPlayer),score:0,wickets:0,balls:0,extras:{wide:0,noBall:0,bye:0,legBye:0},overs:[],fow:[],commentary:[]}; }
+
+// ── Shared UI ─────────────────────────────────────────────────────────────────
+const Card = ({title,children,style={}}) => (
+  <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,...style}}>
+    {title&&<div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>{title}</div>}
+    {children}
+  </div>
+);
+const Label = ({children,style={}}) => <div style={{fontSize:11,color:"var(--muted)",letterSpacing:1,marginBottom:4,...style}}>{children}</div>;
+const NavBtn = ({label,onClick,active}) => (
+  <button onClick={onClick} style={{flex:1,padding:"10px 0",background:"transparent",color:active?"var(--accent)":"var(--muted)",border:"none",borderBottom:active?"2px solid var(--accent)":"2px solid transparent",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>{label}</button>
+);
+const SectionHead = ({children}) => <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:5}}>{children}</div>;
+const TableRow = ({cells,header}) => (
+  <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 1fr",padding:"7px 10px",borderBottom:"1px solid var(--border)",background:header?"var(--bg2)":"transparent",alignItems:"center"}}>
+    {cells.map((c,i)=><div key={i} style={{fontFamily:"Barlow Condensed",fontSize:header?10:13,fontWeight:header?700:400,color:header?"var(--muted)":i===0?"var(--text)":"var(--muted)",textAlign:i>0?"center":"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c}</div>)}
+  </div>
+);
+function BallDot({ball}){
+  const c=ball.type==="wide"||ball.type==="noBall"?"var(--accent2)":ball.type==="wicket"?"var(--danger)":ball.runs===4?"var(--gold)":ball.runs===6?"var(--accent3)":ball.runs===0?"var(--muted)":"var(--accent)";
+  const label=ball.type==="wide"?"Wd":ball.type==="noBall"?"NB":ball.type==="wicket"?"W":ball.runs;
+  return <div style={{width:26,height:26,borderRadius:"50%",border:`2px solid ${c}`,background:`${c}22`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Orbitron",fontSize:8,fontWeight:700,color:c,flexShrink:0}}>{label}</div>;
 }
-
-function newBall(runs, type, batter, bowler) {
-  return { runs, type, batter, bowler };
-}
-
-// ─── SETUP SCREEN ──────────────────────────────────────────────────────────────
-function SetupScreen({ onStart }) {
-  const [team1, setTeam1] = useState("Team Alpha");
-  const [team2, setTeam2] = useState("Team Bravo");
-  const [overs, setOvers] = useState(10);
-  const [players1, setPlayers1] = useState(Array(11).fill("").map((_, i) => `Player ${i + 1}`));
-  const [players2, setPlayers2] = useState(Array(11).fill("").map((_, i) => `Player ${i + 1}`));
-  const [tab, setTab] = useState(0);
-
-  const updatePlayer = (team, idx, val) => {
-    if (team === 0) { const a = [...players1]; a[idx] = val; setPlayers1(a); }
-    else { const a = [...players2]; a[idx] = val; setPlayers2(a); }
-  };
-
-  const handle = () => {
-    onStart({ team1name: team1, team2name: team2, overs, players1: players1.filter(Boolean), players2: players2.filter(Boolean) });
-  };
-
+function AwardCard({icon,title,name,stat,color}){
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", padding: "20px 16px", background: "radial-gradient(ellipse at top, #0d1f2d 0%, #080c10 70%)" }}>
-      <div style={{ width: "100%", maxWidth: 480 }}>
-        {/* logo */}
-        <div style={{ textAlign: "center", marginBottom: 32, animation: "fadeInUp 0.6s ease" }}>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 28, letterSpacing: 3, color: "var(--accent)" }} className="glow">🏏 CRICSCAN</div>
-          <div style={{ color: "var(--muted)", fontSize: 13, letterSpacing: 2, marginTop: 4 }}>AI POWERED SCORER</div>
+    <div style={{background:"var(--bg3)",border:`1px solid ${color}33`,borderRadius:"var(--rad)",padding:"10px 12px"}}>
+      <div style={{fontSize:20,marginBottom:4}}>{icon}</div>
+      <div style={{fontSize:10,color:"var(--muted)",letterSpacing:1,fontWeight:700,marginBottom:2}}>{title}</div>
+      <div style={{fontSize:14,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700}}>{name||"—"}</div>
+      <div style={{fontSize:11,color}}>{stat}</div>
+    </div>
+  );
+}
+
+// ── SPLASH SCREEN ────────────────────────────────────────────────────────────
+function SplashScreen({onStart}){
+  const [visible,setVisible]=useState(false);
+  useEffect(()=>{setTimeout(()=>setVisible(true),100);},[]);
+  return (
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at center,#0d1f30 0%,#080c10 60%,#040608 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
+      {/* background glow orbs */}
+      <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"rgba(0,229,255,0.04)",top:"10%",left:"50%",transform:"translateX(-50%)",filter:"blur(60px)",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",width:200,height:200,borderRadius:"50%",background:"rgba(255,107,53,0.05)",bottom:"20%",right:"10%",filter:"blur(40px)",pointerEvents:"none"}}/>
+
+      <div style={{textAlign:"center",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(30px)",transition:"all 0.8s ease"}}>
+        {/* Cricket bat icon */}
+        <div style={{fontSize:72,marginBottom:16,filter:"drop-shadow(0 0 20px rgba(0,229,255,0.4))"}}>🏏</div>
+
+        {/* CRICSCAN title */}
+        <div style={{fontFamily:"Orbitron",fontSize:38,fontWeight:900,letterSpacing:6,color:"var(--accent)",marginBottom:6,textShadow:"0 0 30px rgba(0,229,255,0.6),0 0 60px rgba(0,229,255,0.3)"}}>CRICSCAN</div>
+
+        {/* Tagline */}
+        <div style={{fontFamily:"Barlow Condensed",fontSize:14,letterSpacing:4,color:"var(--muted)",marginBottom:6,textTransform:"uppercase"}}>AI Powered Cricket Scorer</div>
+
+        {/* Divider */}
+        <div style={{width:60,height:2,background:"linear-gradient(90deg,transparent,var(--accent),transparent)",margin:"16px auto 20px"}}/>
+
+        {/* Made by */}
+        <div style={{fontFamily:"Barlow Condensed",fontSize:15,color:"var(--muted)",letterSpacing:2,marginBottom:48}}>
+          Made by <span style={{color:"var(--text)",fontWeight:700,letterSpacing:1}}>Advaith Madhogaria</span>
         </div>
 
-        {/* match settings */}
-        <Card title="MATCH SETUP" style={{ marginBottom: 16 }}>
-          <Label>Team 1 Name</Label>
-          <Input value={team1} onChange={e => setTeam1(e.target.value)} />
-          <Label style={{ marginTop: 12 }}>Team 2 Name</Label>
-          <Input value={team2} onChange={e => setTeam2(e.target.value)} />
-          <Label style={{ marginTop: 12 }}>Overs</Label>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[5, 10, 20, 50].map(o => (
-              <button key={o} onClick={() => setOvers(o)} style={{ flex: 1, padding: "8px 0", background: overs === o ? "var(--accent)" : "var(--bg3)", color: overs === o ? "#000" : "var(--text)", border: `1px solid ${overs === o ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>{o}</button>
-            ))}
-            <input type="number" value={overs} onChange={e => setOvers(Number(e.target.value))} style={{ width: 70, padding: "8px 10px", background: "var(--bg3)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontSize: 15 }} />
-          </div>
-        </Card>
+        {/* CTA Button */}
+        <button onClick={onStart} style={{padding:"16px 44px",background:"linear-gradient(135deg,#ffd700,#ffaa00)",color:"#000",fontFamily:"Orbitron",fontWeight:900,fontSize:15,letterSpacing:3,border:"none",borderRadius:50,cursor:"pointer",boxShadow:"0 0 30px rgba(255,215,0,0.4),0 4px 20px rgba(0,0,0,0.4)",transform:"scale(1)",transition:"transform 0.15s,box-shadow 0.15s",animation:"pulse-border 2s infinite"}}
+          onMouseEnter={e=>{e.target.style.transform="scale(1.05)";e.target.style.boxShadow="0 0 40px rgba(255,215,0,0.6),0 6px 24px rgba(0,0,0,0.5)";}}
+          onMouseLeave={e=>{e.target.style.transform="scale(1)";e.target.style.boxShadow="0 0 30px rgba(255,215,0,0.4),0 4px 20px rgba(0,0,0,0.4)";}}>
+          LET'S GET STARTED! ▶
+        </button>
 
-        {/* players tab */}
-        <Card title="SQUAD SETUP" style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            {[team1, team2].map((t, i) => (
-              <button key={i} onClick={() => setTab(i)} style={{ flex: 1, padding: "7px 0", background: tab === i ? "var(--accent2)" : "var(--bg3)", color: tab === i ? "#fff" : "var(--muted)", border: `1px solid ${tab === i ? "var(--accent2)" : "var(--border)"}`, borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>{t}</button>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-            {(tab === 0 ? players1 : players2).map((p, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "var(--muted)", fontSize: 11, minWidth: 16 }}>{i + 1}</span>
-                <input value={p} onChange={e => updatePlayer(tab, i, e.target.value)} style={{ flex: 1, padding: "6px 8px", background: "var(--bg3)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontSize: 14 }} />
+        {/* Version tag */}
+        <div style={{marginTop:32,fontSize:11,color:"var(--border)",fontFamily:"Barlow Condensed",letterSpacing:2}}>v2.0 · CRICSCAN</div>
+      </div>
+    </div>
+  );
+}
+
+// ── SETUP SCREEN ──────────────────────────────────────────────────────────────
+function SetupScreen({onStart}){
+  const [step,setStep]=useState(0); // 0=match info, 1=squads
+  const [team1,setTeam1]=useState("Team Alpha");
+  const [team2,setTeam2]=useState("Team Bravo");
+  const [overs,setOvers]=useState(10);
+  const [format,setFormat]=useState("limited");
+  const [ballType,setBallType]=useState("tennis");
+  const [players1,setPlayers1]=useState(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
+  const [players2,setPlayers2]=useState(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
+  const [tab,setTab]=useState(0);
+  const upd=(team,idx,val)=>{if(team===0){const a=[...players1];a[idx]=val;setPlayers1(a);}else{const a=[...players2];a[idx]=val;setPlayers2(a);}};
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,#0d1f2d 0%,#080c10 70%)"}}>
+      <div style={{width:"100%",maxWidth:460}}>
+        <div style={{textAlign:"center",marginBottom:24,animation:"fadeInUp 0.6s ease"}}>
+          <div style={{fontFamily:"Orbitron",fontSize:26,letterSpacing:3,color:"var(--accent)"}} className="glow">🏏 CRICSCAN</div>
+          <div style={{color:"var(--muted)",fontSize:11,letterSpacing:2,marginTop:3}}>AI POWERED SCORER</div>
+        </div>
+
+        {/* Step indicator */}
+        <div style={{display:"flex",gap:8,marginBottom:20,justifyContent:"center"}}>
+          {["Match Info","Squads"].map((s,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{width:22,height:22,borderRadius:"50%",background:step>=i?"var(--accent)":"var(--bg3)",border:`1px solid ${step>=i?"var(--accent)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:step>=i?"#000":"var(--muted)",fontFamily:"Orbitron"}}>{i+1}</div>
+              <span style={{fontSize:12,color:step===i?"var(--accent)":"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{s}</span>
+              {i<1&&<span style={{color:"var(--border)"}}>›</span>}
+            </div>
+          ))}
+        </div>
+
+        {step===0 && (
+          <div style={{animation:"fadeInUp 0.3s ease"}}>
+            <Card title="TEAM NAMES" style={{marginBottom:12}}>
+              <Label>Team 1</Label>
+              <input value={team1} onChange={e=>setTeam1(e.target.value)} style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:10}} />
+              <Label>Team 2</Label>
+              <input value={team2} onChange={e=>setTeam2(e.target.value)} style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}} />
+            </Card>
+
+            <Card title="MATCH FORMAT" style={{marginBottom:12}}>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                {[["limited","🏏 Limited Overs"],["test","📋 Test Match"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setFormat(v)} style={{flex:1,padding:"10px 0",background:format===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:format===v?"var(--accent)":"var(--muted)",border:`2px solid ${format===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>{l}</button>
+                ))}
               </div>
-            ))}
-          </div>
-        </Card>
 
-        <button onClick={handle} style={{ width: "100%", padding: "14px 0", background: "linear-gradient(135deg, var(--accent), #0099bb)", color: "#000", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 2, border: "none", borderRadius: "var(--rad)", cursor: "pointer", animation: "pulse-border 2s infinite" }}>
-          START MATCH ▶
-        </button>
-      </div>
-    </div>
-  );
-}
+              {format==="limited" && (
+                <>
+                  <Label>Number of Overs</Label>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                    {[5,10,20,50].map(o=>(<button key={o} onClick={()=>setOvers(o)} style={{flex:1,padding:"9px 0",background:overs===o?"var(--accent)":"var(--bg3)",color:overs===o?"#000":"var(--text)",border:`1px solid ${overs===o?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>{o}</button>))}
+                    <input type="number" value={overs} onChange={e=>setOvers(Number(e.target.value))} placeholder="Custom" style={{width:70,padding:"9px 8px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:14,textAlign:"center"}} />
+                  </div>
+                </>
+              )}
 
-// ─── CAMERA ZONE SETUP ─────────────────────────────────────────────────────────
-function CameraSetup({ onDone, onSkip }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [zones, setZones] = useState([]);
-  const [drawing, setDrawing] = useState(false);
-  const [start, setStart] = useState(null);
-  const [selectedRuns, setSelectedRuns] = useState(4);
-  const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState("");
+              {format==="test" && (
+                <div style={{padding:"10px 12px",background:"rgba(0,229,255,0.05)",borderRadius:"var(--rad)",border:"1px solid rgba(0,229,255,0.15)",fontSize:13,color:"var(--muted)"}}>
+                  📋 4 innings · Unlimited overs · Stumps, Tea, Lunch & Rain breaks available
+                </div>
+              )}
+            </Card>
 
-  useEffect(() => {
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: "environment" } })
-      .then(s => { if (videoRef.current) { videoRef.current.srcObject = s; setStreaming(true); } })
-      .catch(() => setError("Camera access denied. Use manual scoring or grant camera permission."));
-    return () => { videoRef.current?.srcObject?.getTracks().forEach(t => t.stop()); };
-  }, []);
+            <Card title="BALL TYPE" style={{marginBottom:20}}>
+              <div style={{display:"flex",gap:8}}>
+                {[["tennis","🎾 Tennis"],["rubber","⚫ Rubber"],["hard","🔴 Hard Ball"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setBallType(v)} style={{flex:1,padding:"10px 0",background:ballType===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:ballType===v?"var(--accent)":"var(--muted)",border:`2px solid ${ballType===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{l}</button>
+                ))}
+              </div>
+            </Card>
 
-  const getPos = (e, el) => {
-    const r = el.getBoundingClientRect();
-    const cx = (e.touches?.[0]?.clientX ?? e.clientX) - r.left;
-    const cy = (e.touches?.[0]?.clientY ?? e.clientY) - r.top;
-    return { x: cx / r.width, y: cy / r.height };
-  };
-
-  const onDown = e => { const p = getPos(e, canvasRef.current); setStart(p); setDrawing(true); };
-  const onUp = e => {
-    if (!drawing || !start) return;
-    const p = getPos(e, canvasRef.current);
-    setZones(z => [...z, { x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y), runs: selectedRuns }]);
-    setDrawing(false); setStart(null);
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", padding: 16 }}>
-      <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 16, marginBottom: 8, letterSpacing: 2 }} className="glow">📷 CAMERA ZONE SETUP</div>
-      <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 12 }}>Draw zones on the pitch view and assign runs to each zone. The AI will detect where the ball lands.</div>
-
-      {error ? <div style={{ color: "var(--danger)", background: "#1a0a0a", padding: 12, borderRadius: "var(--rad)", marginBottom: 12, fontSize: 13 }}>{error}</div> : null}
-
-      {/* run selector */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-        {[1, 2, 3, 4, 6, "BOUNDARY"].map(r => (
-          <button key={r} onClick={() => setSelectedRuns(r)} style={{ padding: "6px 12px", background: selectedRuns === r ? "var(--accent2)" : "var(--bg3)", color: selectedRuns === r ? "#fff" : "var(--muted)", border: `1px solid ${selectedRuns === r ? "var(--accent2)" : "var(--border)"}`, borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{r}</button>
-        ))}
-      </div>
-
-      {/* video + canvas overlay */}
-      <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000", borderRadius: "var(--rad2)", overflow: "hidden", border: "1px solid var(--border)", marginBottom: 12 }}>
-        <video ref={videoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "crosshair" }}
-          onMouseDown={onDown} onMouseUp={onUp} onTouchStart={onDown} onTouchEnd={onUp} />
-        {/* draw saved zones */}
-        {zones.map((z, i) => (
-          <div key={i} style={{ position: "absolute", left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.w * 100}%`, height: `${z.h * 100}%`, border: "2px solid var(--accent2)", background: "rgba(255,107,53,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "var(--accent2)", fontFamily: "'Orbitron',sans-serif", fontSize: 13, fontWeight: 700 }}>{z.runs}</span>
-          </div>
-        ))}
-        {!streaming && !error && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>Starting camera...</div>}
-      </div>
-
-      <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 12 }}>Zones defined: {zones.length} &nbsp;|&nbsp; Drag on camera to draw a zone</div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => setZones([])} style={{ flex: 1, padding: 10, background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Clear Zones</button>
-        <button onClick={onSkip} style={{ flex: 1, padding: 10, background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Skip (Manual Only)</button>
-        <button onClick={() => onDone(zones)} style={{ flex: 1, padding: 10, background: "var(--accent)", color: "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>DONE ✓</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── LIVE CAMERA TRACKER (during match) ───────────────────────────────────────
-function CameraTracker({ zones, onDetect, active }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animRef = useRef(null);
-  const prevFrameRef = useRef(null);
-  const [detected, setDetected] = useState(null);
-  const [streaming, setStreaming] = useState(false);
-
-  useEffect(() => {
-    if (!active) return;
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: "environment" } })
-      .then(s => { if (videoRef.current) { videoRef.current.srcObject = s; setStreaming(true); } })
-      .catch(() => {});
-    return () => { videoRef.current?.srcObject?.getTracks().forEach(t => t.stop()); cancelAnimationFrame(animRef.current); };
-  }, [active]);
-
-  useEffect(() => {
-    if (!streaming || !active) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    const analyze = () => {
-      if (!videoRef.current?.readyState >= 2) { animRef.current = requestAnimationFrame(analyze); return; }
-      canvas.width = videoRef.current.videoWidth || 320;
-      canvas.height = videoRef.current.videoHeight || 240;
-      ctx.drawImage(videoRef.current, 0, 0);
-      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-      if (prevFrameRef.current) {
-        // simple motion detection — find centroid of changed pixels
-        let sx = 0, sy = 0, count = 0;
-        for (let i = 0; i < frame.data.length; i += 4) {
-          const dr = Math.abs(frame.data[i] - prevFrameRef.current[i]);
-          const dg = Math.abs(frame.data[i + 1] - prevFrameRef.current[i + 1]);
-          const db = Math.abs(frame.data[i + 2] - prevFrameRef.current[i + 2]);
-          if (dr + dg + db > 80) {
-            const px = (i / 4) % canvas.width;
-            const py = Math.floor((i / 4) / canvas.width);
-            sx += px; sy += py; count++;
-          }
-        }
-        if (count > 200) {
-          const cx = sx / count / canvas.width;
-          const cy = sy / count / canvas.height;
-          // check which zone
-          for (const z of zones) {
-            if (cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h) {
-              setDetected({ runs: z.runs, cx, cy });
-              onDetect(z.runs);
-              break;
-            }
-          }
-        } else {
-          setDetected(null);
-        }
-      }
-      prevFrameRef.current = frame.data.slice();
-      animRef.current = requestAnimationFrame(analyze);
-    };
-    animRef.current = requestAnimationFrame(analyze);
-    return () => cancelAnimationFrame(animRef.current);
-  }, [streaming, active, zones]);
-
-  if (!active) return null;
-
-  return (
-    <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000", borderRadius: "var(--rad)", overflow: "hidden", border: "1px solid var(--border)", marginBottom: 10 }}>
-      <video ref={videoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-      {/* zone overlays */}
-      {zones.map((z, i) => (
-        <div key={i} style={{ position: "absolute", left: `${z.x * 100}%`, top: `${z.y * 100}%`, width: `${z.w * 100}%`, height: `${z.h * 100}%`, border: "1px solid rgba(0,229,255,0.4)", background: "rgba(0,229,255,0.05)" }}>
-          <span style={{ color: "rgba(0,229,255,0.7)", fontFamily: "'Orbitron',sans-serif", fontSize: 10 }}>{z.runs}</span>
-        </div>
-      ))}
-      {detected && (
-        <div style={{ position: "absolute", left: `${detected.cx * 100}%`, top: `${detected.cy * 100}%`, transform: "translate(-50%,-50%)", background: "var(--accent2)", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Orbitron',sans-serif", fontWeight: 900, fontSize: 13, color: "#fff", animation: "bounce-in 0.3s ease" }}>
-          {detected.runs}
-        </div>
-      )}
-      {/* scanline effect */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(transparent 50%, rgba(0,0,0,0.03) 50%)", backgroundSize: "100% 3px", pointerEvents: "none", opacity: 0.4 }} />
-      <div style={{ position: "absolute", top: 6, right: 8, background: "rgba(255,61,90,0.9)", borderRadius: 3, padding: "2px 6px", fontSize: 10, fontFamily: "'Orbitron',sans-serif", color: "#fff", letterSpacing: 1 }}>
-        <span className="blink">●</span> LIVE AI
-      </div>
-    </div>
-  );
-}
-
-// ─── SCORING SCREEN ────────────────────────────────────────────────────────────
-function ScoringScreen({ match, onBall, onWicket, onUndo, onEndInnings }) {
-  const { batting, bowling, overs } = match;
-  const bt = match.teams[batting];
-  const bw = match.teams[bowling];
-  const balls = bt.balls;
-  const rem = overs * 6 - balls;
-  const currentOver = bt.overs[bt.overs.length - 1] || [];
-
-  const [showCamera, setShowCamera] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const [extraType, setExtraType] = useState(null);
-  const [declareDialog, setDeclareDialog] = useState(null);
-  const [declareRuns, setDeclareRuns] = useState("");
-
-  const notify = (msg, color = "var(--accent)") => {
-    setNotification({ msg, color });
-    setTimeout(() => setNotification(null), 1500);
-  };
-
-  const handleRun = (r, type = "normal") => {
-    onBall(r, type || extraType || "normal");
-    setExtraType(null);
-    notify(type === "wide" ? `Wide +${r + 1}` : type === "noBall" ? `No Ball +${r + 1}` : r === 4 ? "FOUR! 🏏" : r === 6 ? "SIX! 🚀" : r === 0 ? "Dot Ball" : `${r} Run${r > 1 ? "s" : ""}`, r === 6 ? "var(--accent3)" : r === 4 ? "var(--gold)" : "var(--accent)");
-  };
-
-  const handleWicket = () => { onWicket(); notify("WICKET! 🔴", "var(--danger)"); };
-
-  const handleDeclare = () => {
-    const r = parseInt(declareRuns);
-    if (isNaN(r) || r < 0) return;
-    onBall(r, extraType || "normal");
-    setExtraType(null);
-    setDeclareDialog(null);
-    setDeclareRuns("");
-    notify(r === 4 ? "FOUR! 🏏" : r === 6 ? "SIX! 🚀" : `${r} Run${r !== 1 ? "s" : ""} declared`, r === 6 ? "var(--accent3)" : r === 4 ? "var(--gold)" : "var(--accent)");
-  };
-
-  const runBtns = [0, 1, 2, 3, 4, 6];
-  const extraBtns = ["Wide", "No Ball", "Bye", "Leg Bye"];
-  const extraMap = { "Wide": "wide", "No Ball": "noBall", "Bye": "bye", "Leg Bye": "legBye" };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-
-      {/* notification toast */}
-      {notification && (
-        <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", background: notification.color, color: notification.color === "var(--gold)" || notification.color === "var(--accent3)" ? "#000" : "#fff", padding: "10px 24px", borderRadius: 30, fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 16, zIndex: 999, animation: "bounce-in 0.3s ease", whiteSpace: "nowrap" }}>
-          {notification.msg}
-        </div>
-      )}
-
-      {/* scoreboard header */}
-      <div style={{ background: "linear-gradient(135deg, #0a1520 0%, #0d1f2e 100%)", borderBottom: "1px solid var(--border)", padding: "12px 16px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 11, letterSpacing: 2, marginBottom: 2 }}>{bt.name} BATTING</div>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 36, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
-              {bt.score}<span style={{ color: "var(--danger)", fontSize: 22 }}>/{bt.wickets}</span>
-            </div>
-            <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>
-              {over(balls)} ov &nbsp;·&nbsp; RR: {balls > 0 ? ((bt.score / balls) * 6).toFixed(2) : "0.00"} &nbsp;·&nbsp; {rem} balls left
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ color: "var(--muted)", fontSize: 11, letterSpacing: 1 }}>EXTRAS</div>
-            <div style={{ color: "var(--text)", fontSize: 18, fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 }}>
-              {(bt.extras.wide || 0) + (bt.extras.noBall || 0) + (bt.extras.bye || 0) + (bt.extras.legBye || 0)}
-            </div>
-            <div style={{ color: "var(--muted)", fontSize: 10 }}>W:{bt.extras.wide || 0} NB:{bt.extras.noBall || 0}</div>
-          </div>
-        </div>
-
-        {/* current over balls */}
-        <div style={{ display: "flex", gap: 5, marginTop: 10, flexWrap: "wrap" }}>
-          {currentOver.map((b, i) => (
-            <BallDot key={i} ball={b} />
-          ))}
-          {currentOver.length < 6 && Array(6 - currentOver.length).fill(0).map((_, i) => (
-            <div key={"e" + i} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px dashed var(--border)" }} />
-          ))}
-        </div>
-
-        {/* batter/bowler info — tap batter to declare runs */}
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          {/* STRIKER — tappable */}
-          <div onClick={() => setDeclareDialog("striker")} style={{ flex: 1, background: "rgba(0,229,255,0.07)", border: "1.5px solid var(--accent)", borderRadius: "var(--rad)", padding: "6px 8px", cursor: "pointer", position: "relative" }}>
-            <div style={{ fontSize: 9, color: "var(--accent)", letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>ON STRIKE ✦</div>
-            <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.striker?.name || "—"}</div>
-            <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700 }}>{match.striker?.runs || 0}<span style={{color:"var(--muted)",fontWeight:400}}>({match.striker?.balls || 0})</span></div>
-            <div style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--accent)", opacity: 0.6 }}>TAP</div>
-          </div>
-          {/* NON-STRIKER — tappable */}
-          <div onClick={() => setDeclareDialog("nonStriker")} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: "var(--rad)", padding: "6px 8px", cursor: "pointer", position: "relative" }}>
-            <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>NON-STRIKE</div>
-            <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.nonStriker?.name || "—"}</div>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>{match.nonStriker?.runs || 0}<span style={{color:"var(--muted)"}}>({match.nonStriker?.balls || 0})</span></div>
-            <div style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--muted)", opacity: 0.6 }}>TAP</div>
-          </div>
-          {/* BOWLER */}
-          <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,107,53,0.3)", borderRadius: "var(--rad)", padding: "6px 8px" }}>
-            <div style={{ fontSize: 9, color: "var(--accent2)", letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>BOWLING</div>
-            <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{match.currentBowler?.name || "—"}</div>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>{match.currentBowler?.wickets || 0}/{match.currentBowler?.runs || 0}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── DECLARE RUNS DIALOG ── */}
-      {declareDialog && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad2)", padding: 22, width: "100%", maxWidth: 340, animation: "fadeInUp 0.3s ease" }}>
-            <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 13, letterSpacing: 2, marginBottom: 6 }}>
-              DECLARE RUNS
-            </div>
-            <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 14 }}>
-              {declareDialog === "striker" ? match.striker?.name : match.nonStriker?.name} — enter runs scored this ball
-            </div>
-            {/* quick run buttons */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(r => (
-                <button key={r} onClick={() => setDeclareRuns(String(r))} style={{ padding: "10px 0", background: declareRuns === String(r) ? "var(--accent)" : "var(--bg3)", color: declareRuns === String(r) ? "#000" : "var(--text)", border: `1px solid ${declareRuns === String(r) ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 16, cursor: "pointer" }}>{r}</button>
-              ))}
-            </div>
-            {/* custom input */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ color: "var(--muted)", fontSize: 11, marginBottom: 5, letterSpacing: 1 }}>OR TYPE CUSTOM RUNS</div>
-              <input
-                type="number" min="0" value={declareRuns}
-                onChange={e => setDeclareRuns(e.target.value)}
-                placeholder="e.g. 5"
-                style={{ width: "100%", padding: "10px 12px", background: "var(--bg3)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontSize: 18, outline: "none" }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { setDeclareDialog(null); setDeclareRuns(""); }} style={{ flex: 1, padding: 11, background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleDeclare} disabled={declareRuns === ""} style={{ flex: 2, padding: 11, background: declareRuns !== "" ? "var(--accent)" : "var(--bg3)", color: declareRuns !== "" ? "#000" : "var(--muted)", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: declareRuns !== "" ? "pointer" : "default", letterSpacing: 1 }}>CONFIRM RUNS</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
-
-        {/* camera toggle */}
-        <button onClick={() => setShowCamera(s => !s)} style={{ width: "100%", padding: "8px 0", marginBottom: 10, background: showCamera ? "rgba(0,229,255,0.1)" : "var(--bg3)", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, letterSpacing: 1, cursor: "pointer" }}>
-          {showCamera ? "📷 HIDE CAMERA" : "📷 SHOW AI CAMERA"}
-        </button>
-
-        {showCamera && <CameraTracker zones={match.zones || []} onDetect={r => handleRun(r, "camera")} active={showCamera} />}
-
-        {/* extra type selector */}
-        {extraType && (
-          <div style={{ background: "rgba(255,107,53,0.12)", border: "1px solid var(--accent2)", borderRadius: "var(--rad)", padding: "8px 12px", marginBottom: 10, fontSize: 13, color: "var(--accent2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Mode: <b>{extraType.toUpperCase()}</b> — Now tap runs</span>
-            <button onClick={() => setExtraType(null)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
+            <button onClick={()=>setStep(1)} style={{width:"100%",padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>
+              NEXT: ADD PLAYERS →
+            </button>
           </div>
         )}
 
-        {/* run buttons */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 10 }}>
-          {runBtns.map(r => (
-            <button key={r} onClick={() => handleRun(r, extraType || "normal")} style={{ padding: "18px 0", background: r === 4 ? "rgba(255,215,0,0.12)" : r === 6 ? "rgba(57,255,20,0.12)" : "var(--bg3)", color: r === 4 ? "var(--gold)" : r === 6 ? "var(--accent3)" : "var(--text)", border: `2px solid ${r === 4 ? "var(--gold)" : r === 6 ? "var(--accent3)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "'Orbitron',sans-serif", fontWeight: 900, fontSize: r === 6 ? 28 : 22, cursor: "pointer", transition: "all 0.15s" }}>
-              {r === 0 ? "•" : r}
+        {step===1 && (
+          <div style={{animation:"fadeInUp 0.3s ease"}}>
+            <Card title="SQUAD SETUP" style={{marginBottom:16}}>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                {[team1,team2].map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{flex:1,padding:"8px 0",background:tab===i?"var(--accent2)":"var(--bg3)",color:tab===i?"#fff":"var(--muted)",border:`1px solid ${tab===i?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{t}</button>))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {(tab===0?players1:players2).map((p,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{color:"var(--muted)",fontSize:11,minWidth:16,fontFamily:"Orbitron"}}>{i+1}</span>
+                    <input value={p} onChange={e=>upd(tab,i,e.target.value)} style={{flex:1,padding:"6px 8px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:13}} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setStep(0)} style={{flex:1,padding:"13px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>← BACK</button>
+              <button onClick={()=>onStart({team1,team2,overs:format==="test"?9999:overs,format,ballType,players1:players1.filter(Boolean),players2:players2.filter(Boolean)})}
+                style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer",animation:"pulse-border 2s infinite"}}>
+                START MATCH ▶
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── CAMERA SETUP ──────────────────────────────────────────────────────────────
+function CameraSetup({onDone,onSkip}){
+  const videoRef=useRef(null);const canvasRef=useRef(null);
+  const [zones,setZones]=useState([]);const [drawing,setDrawing]=useState(false);const [start,setStart]=useState(null);
+  const [selRuns,setSelRuns]=useState(4);const [streaming,setStreaming]=useState(false);const [error,setError]=useState("");
+  useEffect(()=>{
+    navigator.mediaDevices?.getUserMedia({video:{facingMode:"environment"}}).then(s=>{if(videoRef.current){videoRef.current.srcObject=s;setStreaming(true);}}).catch(()=>setError("Camera access denied. Skip to use manual scoring only."));
+    return ()=>videoRef.current?.srcObject?.getTracks().forEach(t=>t.stop());
+  },[]);
+  const getPos=(e,el)=>{const r=el.getBoundingClientRect();return{x:((e.touches?.[0]?.clientX??e.clientX)-r.left)/r.width,y:((e.touches?.[0]?.clientY??e.clientY)-r.top)/r.height};};
+  const onDown=e=>{const p=getPos(e,canvasRef.current);setStart(p);setDrawing(true);};
+  const onUp=e=>{if(!drawing||!start)return;const p=getPos(e,canvasRef.current);setZones(z=>[...z,{x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y),runs:selRuns}]);setDrawing(false);setStart(null);};
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",padding:16}}>
+      <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:14,marginBottom:6,letterSpacing:2}}>📷 AI CAMERA ZONES</div>
+      <div style={{color:"var(--muted)",fontSize:12,marginBottom:10,lineHeight:1.5}}>Point your phone at the pitch from a fixed position. Draw zones and tag them with runs. AI will auto-score when ball lands in a zone.</div>
+      {error&&<div style={{color:"var(--danger)",background:"#1a0a0a",padding:10,borderRadius:"var(--rad)",marginBottom:10,fontSize:12}}>{error}</div>}
+      <div style={{display:"flex",gap:6,marginBottom:8}}>
+        {[1,2,3,4,6].map(r=>(<button key={r} onClick={()=>setSelRuns(r)} style={{flex:1,padding:"7px 0",background:selRuns===r?"var(--accent2)":"var(--bg3)",color:selRuns===r?"#fff":"var(--muted)",border:`1px solid ${selRuns===r?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:14,cursor:"pointer"}}>{r}</button>))}
+      </div>
+      <div style={{position:"relative",width:"100%",aspectRatio:"16/9",background:"#000",borderRadius:"var(--rad2)",overflow:"hidden",border:"1px solid var(--border)",marginBottom:8}}>
+        <video ref={videoRef} autoPlay playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+        <canvas ref={canvasRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",cursor:"crosshair"}} onMouseDown={onDown} onMouseUp={onUp} onTouchStart={onDown} onTouchEnd={onUp}/>
+        {zones.map((z,i)=>(<div key={i} style={{position:"absolute",left:`${z.x*100}%`,top:`${z.y*100}%`,width:`${z.w*100}%`,height:`${z.h*100}%`,border:"2px solid var(--accent2)",background:"rgba(255,107,53,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"var(--accent2)",fontFamily:"Orbitron",fontSize:12,fontWeight:700,textShadow:"0 0 6px #000"}}>{z.runs}</span></div>))}
+        {!streaming&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--muted)",fontSize:13}}>Starting camera...</div>}
+        <div style={{position:"absolute",top:6,left:8,background:"rgba(0,0,0,0.7)",borderRadius:4,padding:"2px 8px",fontSize:11,color:"var(--muted)"}}>Zones: {zones.length}</div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>setZones([])} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>Clear All</button>
+        <button onClick={onSkip} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>Skip →</button>
+        <button onClick={()=>onDone(zones)} style={{flex:2,padding:10,background:"var(--accent)",color:"#000",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>SAVE & START ✓</button>
+      </div>
+    </div>
+  );
+}
+
+// ── CAMERA TRACKER ────────────────────────────────────────────────────────────
+function CameraTracker({zones,onDetect,active}){
+  const videoRef=useRef(null);const canvasRef=useRef(null);const animRef=useRef(null);const prevRef=useRef(null);
+  const [detected,setDetected]=useState(null);const [streaming,setStreaming]=useState(false);
+  useEffect(()=>{
+    if(!active)return;
+    navigator.mediaDevices?.getUserMedia({video:{facingMode:"environment"}}).then(s=>{if(videoRef.current){videoRef.current.srcObject=s;setStreaming(true);}}).catch(()=>{});
+    return ()=>{videoRef.current?.srcObject?.getTracks().forEach(t=>t.stop());cancelAnimationFrame(animRef.current);};
+  },[active]);
+  useEffect(()=>{
+    if(!streaming||!active)return;
+    const canvas=canvasRef.current;const ctx=canvas.getContext("2d");
+    const analyze=()=>{
+      if(!videoRef.current?.readyState>=2){animRef.current=requestAnimationFrame(analyze);return;}
+      canvas.width=videoRef.current.videoWidth||320;canvas.height=videoRef.current.videoHeight||240;
+      ctx.drawImage(videoRef.current,0,0);
+      const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
+      if(prevRef.current){
+        let sx=0,sy=0,count=0;
+        for(let i=0;i<frame.data.length;i+=4){const d=Math.abs(frame.data[i]-prevRef.current[i])+Math.abs(frame.data[i+1]-prevRef.current[i+1])+Math.abs(frame.data[i+2]-prevRef.current[i+2]);if(d>80){const px=(i/4)%canvas.width;const py=Math.floor((i/4)/canvas.width);sx+=px;sy+=py;count++;}}
+        if(count>200){const cx=sx/count/canvas.width;const cy=sy/count/canvas.height;for(const z of zones){if(cx>=z.x&&cx<=z.x+z.w&&cy>=z.y&&cy<=z.y+z.h){setDetected({runs:z.runs,cx,cy});onDetect(z.runs);break;}}}
+        else setDetected(null);
+      }
+      prevRef.current=frame.data.slice();animRef.current=requestAnimationFrame(analyze);
+    };
+    animRef.current=requestAnimationFrame(analyze);
+    return ()=>cancelAnimationFrame(animRef.current);
+  },[streaming,active,zones]);
+  if(!active)return null;
+  return (
+    <div style={{position:"relative",width:"100%",aspectRatio:"16/9",background:"#000",borderRadius:"var(--rad)",overflow:"hidden",border:"1px solid var(--border)",marginBottom:10}}>
+      <video ref={videoRef} autoPlay playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+      <canvas ref={canvasRef} style={{display:"none"}}/>
+      {zones.map((z,i)=>(<div key={i} style={{position:"absolute",left:`${z.x*100}%`,top:`${z.y*100}%`,width:`${z.w*100}%`,height:`${z.h*100}%`,border:"1px solid rgba(0,229,255,0.3)",background:"rgba(0,229,255,0.04)"}}><span style={{color:"rgba(0,229,255,0.6)",fontFamily:"Orbitron",fontSize:8}}>{z.runs}</span></div>))}
+      {detected&&<div style={{position:"absolute",left:`${detected.cx*100}%`,top:`${detected.cy*100}%`,transform:"translate(-50%,-50%)",background:"var(--accent2)",borderRadius:"50%",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Orbitron",fontWeight:900,fontSize:14,color:"#fff",boxShadow:"0 0 20px var(--accent2)"}} className="bounce-in">{detected.runs}</div>}
+      <div style={{position:"absolute",top:6,right:8,background:"rgba(255,61,90,0.9)",borderRadius:3,padding:"2px 7px",fontSize:9,fontFamily:"Orbitron",color:"#fff",letterSpacing:1}}><span className="blink">●</span> LIVE AI</div>
+    </div>
+  );
+}
+
+// ── SCORING SCREEN ────────────────────────────────────────────────────────────
+function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap}){
+  const bt=match.teams[match.batting];
+  const isChasing=match.inning>0&&match.format!=="test";
+  const target=isChasing?match.teams[0].score+1:null;
+  const totalBalls=match.overs*6;
+  const ballsLeft=Math.max(0,totalBalls-bt.balls);
+  const runsNeeded=target?Math.max(0,target-bt.score):null;
+
+  const [showCamera,setShowCamera]=useState(false);
+  const [notif,setNotif]=useState(null);
+  const [extraType,setExtraType]=useState(null);
+  const [declareDialog,setDeclareDialog]=useState(null);
+  const [declareRuns,setDeclareRuns]=useState("");
+  const [showMenu,setShowMenu]=useState(false);
+  const [showComm,setShowComm]=useState(false);
+  const currentOver=bt.overs[bt.overs.length-1]||[];
+
+  const notify=(msg,color="var(--accent)")=>{setNotif({msg,color});setTimeout(()=>setNotif(null),1800);};
+
+  const handleRun=(r,type="normal")=>{
+    onBall(r,type||extraType||"normal");setExtraType(null);
+    notify(type==="wide"?`Wide +${r+1}`:type==="noBall"?`No Ball +${r}`:r===4?"FOUR! 🏏":r===6?"SIX! 🚀":r===0?"• Dot ball":`${r} run${r>1?"s":""}`,r===6?"var(--accent3)":r===4?"var(--gold)":"var(--accent)");
+  };
+
+  const handleDeclare=()=>{
+    const r=parseInt(declareRuns);if(isNaN(r)||r<0)return;
+    onBall(r,extraType||"normal");setExtraType(null);setDeclareDialog(null);setDeclareRuns("");
+    notify(r===4?"FOUR! 🏏":r===6?"SIX! 🚀":`${r} run${r!==1?"s":""} declared`,r===6?"var(--accent3)":r===4?"var(--gold)":"var(--accent)");
+  };
+
+  const extraMap={"Wide":"wide","No Ball":"noBall","Bye":"bye","Leg Bye":"legBye"};
+
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
+
+      {/* Toast notification */}
+      {notif&&<div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:notif.color,color:["var(--gold)","var(--accent3)"].includes(notif.color)?"#000":"#fff",padding:"9px 20px",borderRadius:30,fontFamily:"Orbitron",fontWeight:700,fontSize:14,zIndex:999,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}} className="bounce-in">{notif.msg}</div>}
+
+      {/* ════ HEADER ════ */}
+      <div style={{background:"linear-gradient(180deg,#0d1f30 0%,#0a1520 100%)",borderBottom:"1px solid var(--border)",padding:"10px 14px 8px"}}>
+
+        {/* Team name + format tag */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:10,letterSpacing:2}}>{bt.name}</div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <span style={{fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.ballType?.toUpperCase()}</span>
+            <span style={{fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.format==="test"?`TEST INN ${match.inning+1}`:`${match.overs}ov`}</span>
+          </div>
+        </div>
+
+        {/* Main score */}
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:4}}>
+          <div>
+            <div style={{fontFamily:"Orbitron",fontSize:42,fontWeight:900,color:"#fff",lineHeight:1,letterSpacing:-1}}>
+              {bt.score}<span style={{color:"var(--danger)",fontSize:24}}>/{bt.wickets}</span>
+            </div>
+            <div style={{color:"var(--muted)",fontSize:12,marginTop:2,display:"flex",gap:10}}>
+              <span>{overStr(bt.balls)} ov</span>
+              <span>RR: <b style={{color:"var(--text)"}}>{calcRR(bt.score,bt.balls)}</b></span>
+              {match.format!=="test"&&<span style={{color:"var(--muted)"}}>{ballsLeft}b left</span>}
+            </div>
+          </div>
+
+          {/* Right side: Extras OR chase info */}
+          <div style={{textAlign:"right"}}>
+            {isChasing&&runsNeeded!==null ? (
+              <div>
+                <div style={{fontFamily:"Orbitron",fontSize:22,color:"var(--accent2)",fontWeight:900,lineHeight:1}}>{runsNeeded}</div>
+                <div style={{color:"var(--muted)",fontSize:10,marginTop:1}}>runs needed</div>
+                <div style={{color:"var(--muted)",fontSize:10}}>in {ballsLeft} balls</div>
+                <div style={{color:"var(--accent2)",fontSize:12,fontWeight:700,marginTop:1}}>RRR {calcRRR(target,bt.score,ballsLeft)}</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{color:"var(--muted)",fontSize:10,letterSpacing:1}}>EXTRAS</div>
+                <div style={{color:"var(--text)",fontSize:20,fontFamily:"Rajdhani",fontWeight:600}}>{Object.values(bt.extras).reduce((a,b)=>a+b,0)}</div>
+                <div style={{color:"var(--muted)",fontSize:10}}>W:{bt.extras.wide} NB:{bt.extras.noBall}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Show extras separately when chasing */}
+        {isChasing&&<div style={{fontSize:10,color:"var(--muted)",marginBottom:4}}>Extras: {Object.values(bt.extras).reduce((a,b)=>a+b,0)} (W:{bt.extras.wide} NB:{bt.extras.noBall} B:{bt.extras.bye} LB:{bt.extras.legBye})</div>}
+
+        {/* Current over balls */}
+        <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",marginRight:2}}>THIS OVER:</span>
+          {currentOver.map((b,i)=><BallDot key={i} ball={b}/>)}
+          {currentOver.length<6&&Array(6-currentOver.length).fill(0).map((_,i)=>(<div key={"e"+i} style={{width:26,height:26,borderRadius:"50%",border:"1px dashed var(--border)",flexShrink:0}}/>))}
+        </div>
+
+        {/* Striker / Non-striker / Bowler — tap batters to declare */}
+        <div style={{display:"flex",gap:6}}>
+          {/* STRIKER — glowing, tappable */}
+          <div onClick={()=>setDeclareDialog("striker")} style={{flex:1.2,background:"rgba(0,229,255,0.06)",border:"1.5px solid var(--accent)",borderRadius:"var(--rad)",padding:"6px 8px",cursor:"pointer",position:"relative"}}>
+            <div style={{fontSize:8,color:"var(--accent)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed"}}>⚡ STRIKER</div>
+            <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.striker?.name||"—"}</div>
+            <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
+              <span style={{color:"var(--accent)",fontWeight:700}}>{match.striker?.runs||0}</span>
+              <span style={{color:"var(--muted)"}}>({match.striker?.balls||0}b)</span>
+              <span style={{color:"var(--muted)",fontSize:10}}>SR {match.striker?.balls>0?((match.striker.runs/match.striker.balls)*100).toFixed(0):0}</span>
+            </div>
+            <div style={{position:"absolute",top:4,right:5,fontSize:8,color:"var(--accent)",opacity:0.5,fontFamily:"Barlow Condensed"}}>TAP</div>
+          </div>
+
+          {/* NON-STRIKER — tappable */}
+          <div onClick={()=>setDeclareDialog("nonStriker")} style={{flex:1,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--rad)",padding:"6px 8px",cursor:"pointer",position:"relative"}}>
+            <div style={{fontSize:8,color:"var(--muted)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed"}}>NON-STRIKE</div>
+            <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.nonStriker?.name||"—"}</div>
+            <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
+              <span style={{color:"var(--muted)"}}>{match.nonStriker?.runs||0}</span>
+              <span style={{color:"var(--muted)"}}>({match.nonStriker?.balls||0}b)</span>
+            </div>
+            <div style={{position:"absolute",top:4,right:5,fontSize:8,color:"var(--muted)",opacity:0.5,fontFamily:"Barlow Condensed"}}>TAP</div>
+          </div>
+
+          {/* BOWLER */}
+          <div style={{flex:1,background:"var(--bg3)",border:"1px solid rgba(255,107,53,0.25)",borderRadius:"var(--rad)",padding:"6px 8px"}}>
+            <div style={{fontSize:8,color:"var(--accent2)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed"}}>BOWLING</div>
+            <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.currentBowler?.name||"—"}</div>
+            <div style={{fontSize:11,color:"var(--muted)",marginTop:1}}>{match.currentBowler?.wickets||0}/{match.currentBowler?.runsConceded||0} <span style={{fontSize:9}}>{overStr(match.currentBowler?.ballsBowled||0)}ov</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* ════ DECLARE RUNS DIALOG ════ */}
+      {declareDialog&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
+          <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:340,animation:"fadeInUp 0.25s ease"}}>
+            <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:12,letterSpacing:2,marginBottom:4}}>DECLARE RUNS</div>
+            <div style={{color:"var(--muted)",fontSize:13,marginBottom:14}}><b style={{color:"var(--text)"}}>{declareDialog==="striker"?match.striker?.name:match.nonStriker?.name}</b> — how many runs this ball?</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:12}}>
+              {[1,2,3,4,5,6,7,8].map(r=>(<button key={r} onClick={()=>setDeclareRuns(String(r))} style={{padding:"11px 0",background:declareRuns===String(r)?"var(--accent)":"var(--bg3)",color:declareRuns===String(r)?"#000":"var(--text)",border:`1px solid ${declareRuns===String(r)?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:16,cursor:"pointer"}}>{r}</button>))}
+            </div>
+            <input type="number" min="0" value={declareRuns} onChange={e=>setDeclareRuns(e.target.value)} placeholder="Custom number..." style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:17,marginBottom:12}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{setDeclareDialog(null);setDeclareRuns("");}} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
+              <button onClick={handleDeclare} disabled={!declareRuns} style={{flex:2,padding:10,background:declareRuns?"var(--accent)":"var(--bg2)",color:declareRuns?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:declareRuns?"pointer":"default",letterSpacing:1}}>CONFIRM ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════ CONTROLS ════ */}
+      <div style={{flex:1,overflowY:"auto",padding:"10px 14px"}}>
+
+        {/* AI Camera toggle */}
+        <button onClick={()=>setShowCamera(s=>!s)} style={{width:"100%",padding:"7px 0",marginBottom:8,background:showCamera?"rgba(0,229,255,0.08)":"var(--bg3)",color:"var(--accent)",border:`1px solid ${showCamera?"var(--accent)":"rgba(0,229,255,0.3)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,letterSpacing:1,cursor:"pointer"}}>
+          {showCamera?"📷 HIDE AI CAMERA":"📷 SHOW AI CAMERA"}
+        </button>
+        {showCamera&&<CameraTracker zones={match.zones||[]} onDetect={r=>handleRun(r,"camera")} active={showCamera}/>}
+
+        {/* Extra mode indicator */}
+        {extraType&&(
+          <div style={{background:"rgba(255,107,53,0.1)",border:"1px solid var(--accent2)",borderRadius:"var(--rad)",padding:"7px 12px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{color:"var(--accent2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,letterSpacing:1}}>MODE: {extraType.toUpperCase()} — Now tap runs</span>
+            <button onClick={()=>setExtraType(null)} style={{background:"none",border:"none",color:"var(--muted)",fontSize:18,cursor:"pointer",lineHeight:1}}>✕</button>
+          </div>
+        )}
+
+        {/* ── RUN BUTTONS ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:8}}>
+          {[0,1,2,3,4,6].map(r=>(
+            <button key={r} onClick={()=>handleRun(r,extraType||"normal")} style={{padding:"17px 0",background:r===4?"rgba(255,215,0,0.1)":r===6?"rgba(57,255,20,0.1)":"var(--bg3)",color:r===4?"var(--gold)":r===6?"var(--accent3)":"var(--text)",border:`2px solid ${r===4?"rgba(255,215,0,0.5)":r===6?"rgba(57,255,20,0.5)":"var(--border)"}`,borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:900,fontSize:r===6?28:r===4?22:20,cursor:"pointer",transition:"transform 0.1s",WebkitTapHighlightColor:"transparent"}}>
+              {r===0?"•":r}
             </button>
           ))}
         </div>
 
-        {/* extras */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-          {extraBtns.map(e => (
-            <button key={e} onClick={() => setExtraType(prev => prev === extraMap[e] ? null : extraMap[e])} style={{ padding: "12px 0", background: extraType === extraMap[e] ? "rgba(255,107,53,0.2)" : "var(--bg3)", color: extraType === extraMap[e] ? "var(--accent2)" : "var(--muted)", border: `1px solid ${extraType === extraMap[e] ? "var(--accent2)" : "var(--border)"}`, borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 15, letterSpacing: 1, cursor: "pointer" }}>
+        {/* ── EXTRAS ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:8}}>
+          {["Wide","No Ball","Bye","Leg Bye"].map(e=>(
+            <button key={e} onClick={()=>setExtraType(prev=>prev===extraMap[e]?null:extraMap[e])} style={{padding:"11px 0",background:extraType===extraMap[e]?"rgba(255,107,53,0.18)":"var(--bg3)",color:extraType===extraMap[e]?"var(--accent2)":"var(--muted)",border:`1px solid ${extraType===extraMap[e]?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,letterSpacing:1,cursor:"pointer"}}>
               {e.toUpperCase()}
             </button>
           ))}
         </div>
 
-        {/* action row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-          <button onClick={handleWicket} style={{ padding: "14px 0", background: "rgba(255,61,90,0.15)", color: "var(--danger)", border: "2px solid var(--danger)", borderRadius: "var(--rad2)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: 1, cursor: "pointer" }}>
-            🔴 OUT
-          </button>
-          <button onClick={onUndo} style={{ padding: "14px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-            ↩ UNDO
-          </button>
-          <button onClick={onEndInnings} style={{ padding: "14px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 12, letterSpacing: 1, cursor: "pointer" }}>
-            END INN
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── WICKET DIALOG ──────────────────────────────────────────────────────────────
-function WicketDialog({ batters, bowlers, onConfirm, onCancel }) {
-  const [outBatter, setOutBatter] = useState(0);
-  const [newBatter, setNewBatter] = useState(null);
-  const [dismissal, setDismissal] = useState("Bowled");
-  const dismissals = ["Bowled", "Caught", "LBW", "Run Out", "Stumped", "Hit Wicket", "Obstructing Field", "Timed Out"];
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--danger)", borderRadius: "var(--rad2)", padding: 20, width: "100%", maxWidth: 380, animation: "fadeInUp 0.3s ease" }}>
-        <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--danger)", fontSize: 16, marginBottom: 16, letterSpacing: 2 }}>🔴 WICKET</div>
-        <Label>Out Batter</Label>
-        <select value={outBatter} onChange={e => setOutBatter(Number(e.target.value))} style={selectStyle}>
-          {batters.map((b, i) => <option key={i} value={i}>{b.name}</option>)}
-        </select>
-        <Label style={{ marginTop: 10 }}>Dismissal Type</Label>
-        <select value={dismissal} onChange={e => setDismissal(e.target.value)} style={selectStyle}>
-          {dismissals.map(d => <option key={d}>{d}</option>)}
-        </select>
-        <Label style={{ marginTop: 10 }}>New Batter</Label>
-        <select value={newBatter ?? ""} onChange={e => setNewBatter(e.target.value)} style={selectStyle}>
-          <option value="">-- Select --</option>
-          {bowlers.map((p, i) => <option key={i} value={p.name}>{p.name}</option>)}
-        </select>
-        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: 10, background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-          <button onClick={() => onConfirm({ outIdx: outBatter, dismissal, newBatter })} style={{ flex: 1, padding: 10, background: "var(--danger)", color: "#fff", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>CONFIRM</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── OVER END / BOWLER SELECT ──────────────────────────────────────────────────
-function BowlerSelectDialog({ players, currentBowler, onSelect }) {
-  const [sel, setSel] = useState(null);
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--accent2)", borderRadius: "var(--rad2)", padding: 20, width: "100%", maxWidth: 340 }}>
-        <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent2)", fontSize: 14, marginBottom: 14, letterSpacing: 2 }}>SELECT NEXT BOWLER</div>
-        {players.filter(p => p.name !== currentBowler).map((p, i) => (
-          <div key={i} onClick={() => setSel(p.name)} style={{ padding: "10px 12px", marginBottom: 6, background: sel === p.name ? "rgba(255,107,53,0.15)" : "var(--bg3)", border: `1px solid ${sel === p.name ? "var(--accent2)" : "var(--border)"}`, borderRadius: "var(--rad)", cursor: "pointer", fontFamily: "'Barlow Condensed'", fontSize: 15, color: sel === p.name ? "var(--accent2)" : "var(--text)" }}>
-            {p.name} &nbsp;<span style={{ color: "var(--muted)", fontSize: 12 }}>{p.overs || 0} ov · {p.wickets || 0}/{p.runs || 0}</span>
-          </div>
-        ))}
-        <button onClick={() => sel && onSelect(sel)} disabled={!sel} style={{ width: "100%", marginTop: 8, padding: 10, background: sel ? "var(--accent2)" : "var(--bg3)", color: sel ? "#fff" : "var(--muted)", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: sel ? "pointer" : "default" }}>BOWL THIS OVER</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── SCORECARD SCREEN ──────────────────────────────────────────────────────────
-function ScorecardScreen({ match, onBack }) {
-  const [tab, setTab] = useState(0);
-  const teamNames = match.teams.map(t => t.name);
-
-  return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      <div style={{ background: "linear-gradient(135deg, #0a1520, #0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 20, cursor: "pointer" }}>←</button>
-        <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 14, letterSpacing: 2 }}>SCORECARD</div>
-      </div>
-
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)" }}>
-        {teamNames.map((n, i) => (
-          <button key={i} onClick={() => setTab(i)} style={{ flex: 1, padding: "10px 0", background: tab === i ? "var(--bg3)" : "transparent", color: tab === i ? "var(--accent)" : "var(--muted)", border: "none", borderBottom: tab === i ? "2px solid var(--accent)" : "2px solid transparent", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 1 }}>{n}</button>
-        ))}
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-        {/* team summary */}
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", padding: 14, marginBottom: 14 }}>
-          <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 20, marginBottom: 4 }}>
-            {match.teams[tab].score}/{match.teams[tab].wickets}
-          </div>
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>
-            Overs: {over(match.teams[tab].balls)} &nbsp;·&nbsp; RR: {match.teams[tab].balls > 0 ? ((match.teams[tab].score / match.teams[tab].balls) * 6).toFixed(2) : "0.00"}
-          </div>
-          <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
-            Extras: {Object.values(match.teams[tab].extras).reduce((a, b) => a + b, 0)} (W:{match.teams[tab].extras.wide || 0} NB:{match.teams[tab].extras.noBall || 0} B:{match.teams[tab].extras.bye || 0} LB:{match.teams[tab].extras.legBye || 0})
-          </div>
+        {/* ── PRIMARY ACTIONS ── */}
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:7,marginBottom:8}}>
+          <button onClick={onWicket} style={{padding:"14px 0",background:"rgba(255,61,90,0.12)",color:"var(--danger)",border:"2px solid rgba(255,61,90,0.5)",borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>🔴 WICKET</button>
+          <button onClick={onUndo} style={{padding:"14px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>↩ UNDO</button>
+          <button onClick={()=>setShowMenu(s=>!s)} style={{padding:"14px 0",background:showMenu?"rgba(0,229,255,0.1)":"var(--bg3)",color:showMenu?"var(--accent)":"var(--muted)",border:`1px solid ${showMenu?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:18,cursor:"pointer"}}>⚙️</button>
         </div>
 
-        {/* batting table */}
-        <div style={{ marginBottom: 14 }}>
-          <SectionHead>BATTING</SectionHead>
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad)", overflow: "hidden" }}>
-            <TableRow header cells={["BATTER", "R", "B", "4s", "6s", "SR"]} />
-            {match.teams[tab].players.map((p, i) => (
-              <TableRow key={i} cells={[
-                <span key="n">{p.name} {p.dismissed ? <span style={{ color: "var(--muted)", fontSize: 10 }}>c/b {p.dismissal}</span> : <span style={{ color: "var(--accent3)", fontSize: 10 }}>*</span>}</span>,
-                p.runs || 0, p.balls || 0, p.fours || 0, p.sixes || 0,
-                p.balls > 0 ? ((p.runs / p.balls) * 100).toFixed(0) : "-"
-              ]} />
-            ))}
-          </div>
-        </div>
-
-        {/* bowling table */}
-        <div>
-          <SectionHead>BOWLING</SectionHead>
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad)", overflow: "hidden" }}>
-            <TableRow header cells={["BOWLER", "O", "M", "R", "W", "ECO"]} />
-            {match.teams[1 - tab].players.filter(p => p.overs > 0 || p.ballsBowled > 0).map((p, i) => (
-              <TableRow key={i} cells={[
-                p.name, over(p.ballsBowled || 0), p.maidens || 0, p.runs || 0, p.wickets || 0,
-                p.ballsBowled > 0 ? ((p.runs / p.ballsBowled) * 6).toFixed(2) : "-"
-              ]} />
-            ))}
-          </div>
-        </div>
-
-        {/* fall of wickets */}
-        {match.teams[tab].fow?.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <SectionHead>FALL OF WICKETS</SectionHead>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {match.teams[tab].fow.map((f, i) => (
-                <div key={i} style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: "var(--rad)", padding: "4px 8px", fontSize: 12, color: "var(--muted)" }}>
-                  {i + 1}-{f.score} ({f.name}, {f.over} ov)
-                </div>
-              ))}
+        {/* ── ⚙️ EXPANDED MENU ── */}
+        {showMenu&&(
+          <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--rad)",padding:12,marginBottom:8,animation:"fadeInUp 0.2s ease"}}>
+            <div style={{fontSize:10,color:"var(--muted)",letterSpacing:2,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:8}}>MORE OPTIONS</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+              <button onClick={()=>{onEndInnings();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(255,107,53,0.1)",color:"var(--accent2)",border:"1px solid rgba(255,107,53,0.3)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>📋 DECLARE INNINGS</button>
+              <button onClick={()=>{onManualStrikeSwap();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(0,229,255,0.06)",color:"var(--accent)",border:"1px solid rgba(0,229,255,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>🔄 SWAP STRIKE</button>
             </div>
+            {/* Test match breaks — only show in test format */}
+            {match.format==="test"&&(
+              <>
+                <div style={{fontSize:10,color:"var(--muted)",letterSpacing:2,fontFamily:"Barlow Condensed",fontWeight:700,margin:"10px 0 6px"}}>TEST MATCH BREAKS</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                  {[["🌙","STUMPS"],["☕","TEA"],["🍽","LUNCH"],["🌧","RAIN STOP"]].map(([icon,label])=>(
+                    <button key={label} onClick={()=>{onStumps(`${icon} ${label}`);setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(0,229,255,0.04)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{icon} {label}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── COMMENTARY (collapsible) ── */}
+        <button onClick={()=>setShowComm(s=>!s)} style={{width:"100%",padding:"7px 0",background:"transparent",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer",marginBottom:showComm?6:0}}>
+          {showComm?"▲ HIDE COMMENTARY":"▼ SHOW COMMENTARY"}
+        </button>
+        {showComm&&(
+          <div style={{background:"var(--bg2)",borderRadius:"var(--rad)",padding:"8px 10px",maxHeight:140,overflowY:"auto"}}>
+            {[...(bt.commentary||[])].reverse().slice(0,15).map((c,i)=>(
+              <div key={i} style={{fontSize:12,color:i===0?"var(--text)":"var(--muted)",borderBottom:"1px solid var(--border)",padding:"4px 0",lineHeight:1.4}}>{c}</div>
+            ))}
+            {!bt.commentary?.length&&<div style={{color:"var(--muted)",fontSize:12}}>No commentary yet...</div>}
           </div>
         )}
       </div>
@@ -639,125 +518,254 @@ function ScorecardScreen({ match, onBack }) {
   );
 }
 
-// ─── RESULT SCREEN ─────────────────────────────────────────────────────────────
-function ResultScreen({ match, onNewMatch }) {
-  const [t0, t1] = match.teams;
-  let result = "";
-  if (t0.score > t1.score) result = `${t0.name} won by ${t0.score - t1.score} runs!`;
-  else if (t1.score > t0.score) result = `${t1.name} won by ${10 - t1.wickets} wickets!`;
-  else result = "Match Tied!";
-
+// ── WICKET DIALOG ─────────────────────────────────────────────────────────────
+function WicketDialog({batters,fieldingTeam,onConfirm,onCancel}){
+  const [outBatter,setOutBatter]=useState(0);
+  const [dismissal,setDismissal]=useState("Bowled");
+  const [fielder,setFielder]=useState("");
+  const dismissals=["Bowled","Caught","LBW","Run Out","Stumped","Hit Wicket","Handled Ball","Obstructing Field","Timed Out","Hit Ball Twice"];
+  const needsFielder=["Caught","Run Out","Stumped"].includes(dismissal);
+  const ss={width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:10};
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at center, #0d2030 0%, #080c10 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ textAlign: "center", animation: "fadeInUp 0.6s ease" }}>
-        <div style={{ fontSize: 60, marginBottom: 10 }}>🏆</div>
-        <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 22, color: "var(--gold)", marginBottom: 8 }} className="glow-o">{result}</div>
-        <div style={{ color: "var(--muted)", marginBottom: 24, fontSize: 14 }}>
-          {t0.name}: {t0.score}/{t0.wickets} ({over(t0.balls)} ov) &nbsp;|&nbsp; {t1.name}: {t1.score}/{t1.wickets} ({over(t1.balls)} ov)
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:150,padding:16}}>
+      <div style={{background:"var(--card)",border:"1px solid var(--danger)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:380,animation:"fadeInUp 0.25s ease"}}>
+        <div style={{fontFamily:"Orbitron",color:"var(--danger)",fontSize:14,marginBottom:14,letterSpacing:2}}>🔴 WICKET!</div>
+        <Label>OUT BATTER</Label>
+        <select value={outBatter} onChange={e=>setOutBatter(Number(e.target.value))} style={ss}>
+          {batters.map((b,i)=><option key={i} value={i}>{b.name} — {b.runs}({b.balls})</option>)}
+        </select>
+        <Label>DISMISSAL TYPE</Label>
+        <select value={dismissal} onChange={e=>setDismissal(e.target.value)} style={ss}>
+          {dismissals.map(d=><option key={d}>{d}</option>)}
+        </select>
+        {needsFielder&&<>
+          <Label>{dismissal==="Caught"?"CAUGHT BY":dismissal==="Run Out"?"RUN OUT BY":"STUMPED BY"}</Label>
+          <select value={fielder} onChange={e=>setFielder(e.target.value)} style={ss}>
+            <option value="">— Select fielder —</option>
+            {fieldingTeam.map((p,i)=><option key={i} value={p.name}>{p.name}</option>)}
+          </select>
+        </>}
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <button onClick={onCancel} style={{flex:1,padding:11,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
+          <button onClick={()=>onConfirm({outIdx:outBatter,dismissal,fielder})} style={{flex:1,padding:11,background:"var(--danger)",color:"#fff",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>CONFIRM OUT</button>
         </div>
-        <button onClick={onNewMatch} style={{ padding: "14px 32px", background: "linear-gradient(135deg, var(--accent), #0099bb)", color: "#000", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: 2, border: "none", borderRadius: "var(--rad)", cursor: "pointer" }}>NEW MATCH</button>
       </div>
     </div>
   );
 }
 
-// ─── SHARED COMPONENTS ─────────────────────────────────────────────────────────
-function Card({ title, children, style }) {
+// ── BOWLER SELECT ─────────────────────────────────────────────────────────────
+function BowlerSelectDialog({players,currentBowler,onSelect}){
+  const [sel,setSel]=useState(null);
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", padding: 16, ...style }}>
-      {title && <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, letterSpacing: 2, fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>{title}</div>}
-      {children}
-    </div>
-  );
-}
-function Label({ children, style }) {
-  return <div style={{ fontSize: 12, color: "var(--muted)", letterSpacing: 1, marginBottom: 5, ...style }}>{children}</div>;
-}
-function Input({ value, onChange, placeholder }) {
-  return <input value={value} onChange={onChange} placeholder={placeholder} style={{ width: "100%", padding: "9px 12px", background: "var(--bg3)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontSize: 15, outline: "none" }} />;
-}
-const selectStyle = { width: "100%", padding: "9px 12px", background: "var(--bg3)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontSize: 15, marginTop: 2 };
-
-function BallDot({ ball }) {
-  const c = ball.type === "wide" || ball.type === "noBall" ? "var(--accent2)" : ball.type === "wicket" ? "var(--danger)" : ball.runs === 4 ? "var(--gold)" : ball.runs === 6 ? "var(--accent3)" : ball.runs === 0 ? "var(--muted)" : "var(--accent)";
-  const label = ball.type === "wide" ? "Wd" : ball.type === "noBall" ? "NB" : ball.type === "wicket" ? "W" : ball.runs;
-  return (
-    <div style={{ width: 28, height: 28, borderRadius: "50%", border: `2px solid ${c}`, background: `${c}22`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Orbitron',sans-serif", fontSize: 9, fontWeight: 700, color: c }}>
-      {label}
-    </div>
-  );
-}
-
-function PlayerChip({ label, name, stat, color }) {
-  return (
-    <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: `1px solid ${color}33`, borderRadius: "var(--rad)", padding: "5px 8px" }}>
-      <div style={{ fontSize: 9, color: color, letterSpacing: 1, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>{label}</div>
-      <div style={{ fontSize: 13, color: "var(--text)", fontFamily: "'Rajdhani',sans-serif", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-      <div style={{ fontSize: 11, color: "var(--muted)" }}>{stat}</div>
-    </div>
-  );
-}
-
-function SectionHead({ children }) {
-  return <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, letterSpacing: 2, fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>{children}</div>;
-}
-
-function TableRow({ cells, header }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", padding: "8px 12px", borderBottom: "1px solid var(--border)", background: header ? "var(--bg2)" : "transparent", alignItems: "center" }}>
-      {cells.map((c, i) => (
-        <div key={i} style={{ fontFamily: "'Barlow Condensed'", fontSize: header ? 11 : 13, fontWeight: header ? 700 : 400, color: header ? "var(--muted)" : i === 0 ? "var(--text)" : "var(--muted)", letterSpacing: header ? 1 : 0, textAlign: i > 0 ? "center" : "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c}</div>
-      ))}
-    </div>
-  );
-}
-
-// ─── HISTORY SCREEN ────────────────────────────────────────────────────────────
-function HistoryScreen({ onBack, onView }) {
-  const [records, setRecords] = useState([]);
-
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("cricscan_history") || "[]");
-      setRecords(saved.reverse());
-    } catch { setRecords([]); }
-  }, []);
-
-  const deleteRecord = (id) => {
-    const updated = records.filter(r => r.id !== id);
-    setRecords(updated);
-    localStorage.setItem("cricscan_history", JSON.stringify([...updated].reverse()));
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      <div style={{ background: "linear-gradient(135deg, #0a1520, #0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 20, cursor: "pointer" }}>←</button>
-        <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 14, letterSpacing: 2 }}>MATCH HISTORY</div>
-      </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-        {records.length === 0 ? (
-          <div style={{ textAlign: "center", color: "var(--muted)", marginTop: 60, fontSize: 15 }}>No matches recorded yet.<br />Play a match to see history!</div>
-        ) : records.map(r => (
-          <div key={r.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", padding: 14, marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text)" }}>{r.teams[0].name} vs {r.teams[1].name}</div>
-                <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 2 }}>{r.date} · {r.overs} overs</div>
-                <div style={{ color: "var(--accent2)", fontSize: 13, marginTop: 4, fontFamily: "'Barlow Condensed'", fontWeight: 700 }}>{r.result}</div>
-              </div>
-              <button onClick={() => deleteRecord(r.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 18, cursor: "pointer" }}>🗑</button>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:150,padding:16}}>
+      <div style={{background:"var(--card)",border:"1px solid var(--accent2)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:360,animation:"fadeInUp 0.25s ease"}}>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent2)",fontSize:12,marginBottom:4,letterSpacing:2}}>NEW OVER</div>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent2)",fontSize:14,marginBottom:14,letterSpacing:2}}>SELECT BOWLER</div>
+        <div style={{maxHeight:260,overflowY:"auto"}}>
+          {players.filter(p=>p.name!==currentBowler).map((p,i)=>(
+            <div key={i} onClick={()=>setSel(p.name)} style={{padding:"11px 14px",marginBottom:6,background:sel===p.name?"rgba(255,107,53,0.15)":"var(--bg3)",border:`1px solid ${sel===p.name?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontFamily:"Barlow Condensed",fontSize:15,color:sel===p.name?"var(--accent2)":"var(--text)",fontWeight:sel===p.name?700:400}}>{p.name}</span>
+              <span style={{color:"var(--muted)",fontSize:12,fontFamily:"Barlow Condensed"}}>{overStr(p.ballsBowled||0)}ov · {p.wickets||0}/{p.runsConceded||0}</span>
             </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              {r.teams.map((t, i) => (
-                <div key={i} style={{ flex: 1, background: "var(--bg3)", borderRadius: "var(--rad)", padding: "6px 10px" }}>
-                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.name}</div>
-                  <div style={{ fontFamily: "'Orbitron',sans-serif", fontSize: 18, color: "var(--text)", fontWeight: 700 }}>{t.score}/{t.wickets}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{over(t.balls)} ov</div>
+          ))}
+        </div>
+        <button onClick={()=>sel&&onSelect(sel)} disabled={!sel} style={{width:"100%",marginTop:10,padding:11,background:sel?"var(--accent2)":"var(--bg3)",color:sel?"#fff":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:sel?"pointer":"default",letterSpacing:1}}>BOWL THIS OVER ▶</button>
+      </div>
+    </div>
+  );
+}
+
+// ── STRIKE SWAP DIALOG ────────────────────────────────────────────────────────
+function StrikeSwapDialog({striker,nonStriker,onConfirm,onCancel}){
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:150,padding:20}}>
+      <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:22,width:"100%",maxWidth:300,textAlign:"center",animation:"fadeInUp 0.25s ease"}}>
+        <div style={{fontSize:36,marginBottom:8}}>🔄</div>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:12,letterSpacing:2,marginBottom:10}}>CHANGE STRIKE?</div>
+        <div style={{color:"var(--muted)",fontSize:13,marginBottom:4,lineHeight:1.6}}>
+          <b style={{color:"var(--accent)"}}>{striker?.name}</b> scored an odd number of runs.<br/>
+          Should <b style={{color:"var(--text)"}}>{nonStriker?.name}</b> take strike?
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:16}}>
+          <button onClick={onCancel} style={{flex:1,padding:"12px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer",letterSpacing:1}}>NO CHANGE</button>
+          <button onClick={onConfirm} style={{flex:1,padding:"12px 0",background:"var(--accent)",color:"#000",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>YES SWAP ✓</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── STUMPS / BREAK DIALOG ─────────────────────────────────────────────────────
+function StumpsDialog({type,onResume,onEnd}){
+  const icon=type.includes("STUMPS")?"🌙":type.includes("TEA")?"☕":type.includes("LUNCH")?"🍽":"🌧";
+  const msgs={"🌙":"Day's play is over. Stumps are drawn.","☕":"Tea break. Players are off the field.","🍽":"Lunch break. Players are off the field.","🌧":"Rain has stopped play."};
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}}>
+      <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:28,width:"100%",maxWidth:300,textAlign:"center",animation:"fadeInUp 0.25s ease"}}>
+        <div style={{fontSize:48,marginBottom:10}}>{icon}</div>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:14,letterSpacing:2,marginBottom:8}}>{type}</div>
+        <div style={{color:"var(--muted)",fontSize:13,marginBottom:22,lineHeight:1.6}}>{msgs[icon]||"Play is paused."}</div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onEnd} style={{flex:1,padding:11,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>End Day</button>
+          <button onClick={onResume} style={{flex:1,padding:11,background:"var(--accent)",color:"#000",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>RESUME ▶</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SCORECARD SCREEN ──────────────────────────────────────────────────────────
+function ScorecardScreen({match,onBack}){
+  const [tab,setTab]=useState(0);
+  const t=match.teams[tab];
+  const bwTeam=match.teams[1-tab];
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"linear-gradient(135deg,#0a1520,#0d1f2e)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={onBack} style={{background:"none",border:"none",color:"var(--accent)",fontSize:22,cursor:"pointer",lineHeight:1}}>←</button>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2}}>SCORECARD</div>
+        {match.format&&<span style={{marginLeft:"auto",fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{match.format.toUpperCase()} · {match.ballType?.toUpperCase()}</span>}
+      </div>
+      <div style={{display:"flex",borderBottom:"1px solid var(--border)"}}>
+        {match.teams.map((tm,i)=>(<button key={i} onClick={()=>setTab(i)} style={{flex:1,padding:"10px 0",background:tab===i?"var(--bg3)":"transparent",color:tab===i?"var(--accent)":"var(--muted)",border:"none",borderBottom:tab===i?"2px solid var(--accent)":"2px solid transparent",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>{tm.name}</button>))}
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:14}}>
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:14,marginBottom:14}}>
+          <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:24,fontWeight:900,marginBottom:4}}>{t.score}<span style={{color:"var(--danger)",fontSize:16}}>/{t.wickets}</span></div>
+          <div style={{display:"flex",gap:14,color:"var(--muted)",fontSize:12}}>
+            <span>Overs: {overStr(t.balls)}</span>
+            <span>RR: <b style={{color:"var(--text)"}}>{calcRR(t.score,t.balls)}</b></span>
+          </div>
+          <div style={{color:"var(--muted)",fontSize:11,marginTop:4}}>Extras: {Object.values(t.extras).reduce((a,b)=>a+b,0)} (W:{t.extras.wide} NB:{t.extras.noBall} B:{t.extras.bye} LB:{t.extras.legBye})</div>
+        </div>
+        <SectionHead>BATTING</SectionHead>
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad)",overflow:"hidden",marginBottom:14}}>
+          <TableRow header cells={["BATTER","R","B","4s","6s","SR"]}/>
+          {t.players.map((p,i)=>(
+            <TableRow key={i} cells={[
+              <span key="n"><span style={{fontWeight:p.dismissed?400:600}}>{p.name}{!p.dismissed&&<span style={{color:"var(--accent3)",fontSize:9}}> *</span>}</span>{p.dismissed&&<span style={{display:"block",color:"var(--muted)",fontSize:9,fontWeight:400}}>{p.dismissal}{p.catchBy?` (${p.catchBy})`:""}</span>}</span>,
+              p.runs||0,p.balls||0,p.fours||0,p.sixes||0,
+              p.balls>0?((p.runs/p.balls)*100).toFixed(0):"-"
+            ]}/>
+          ))}
+        </div>
+        <SectionHead>BOWLING</SectionHead>
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad)",overflow:"hidden",marginBottom:14}}>
+          <TableRow header cells={["BOWLER","O","M","R","W","ECO"]}/>
+          {bwTeam.players.filter(p=>(p.ballsBowled||0)>0).map((p,i)=>(
+            <TableRow key={i} cells={[p.name,overStr(p.ballsBowled||0),p.maidens||0,p.runsConceded||0,p.wickets||0,((p.runsConceded||0)/(p.ballsBowled||1)*6).toFixed(2)]}/>
+          ))}
+        </div>
+        {t.fow?.length>0&&<>
+          <SectionHead>FALL OF WICKETS</SectionHead>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
+            {t.fow.map((f,i)=>(<div key={i} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--rad)",padding:"3px 8px",fontSize:11,color:"var(--muted)"}}>{i+1}‑{f.score} ({f.name}, {f.over})</div>))}
+          </div>
+        </>}
+        {t.commentary?.length>0&&<>
+          <SectionHead>COMMENTARY</SectionHead>
+          <div style={{background:"var(--bg2)",borderRadius:"var(--rad)",padding:"8px 10px"}}>
+            {[...t.commentary].reverse().map((c,i)=>(<div key={i} style={{fontSize:12,color:i===0?"var(--text)":"var(--muted)",borderBottom:"1px solid var(--border)",padding:"5px 0",lineHeight:1.4}}>{c}</div>))}
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+// ── RESULT SCREEN ─────────────────────────────────────────────────────────────
+function ResultScreen({match,onNewMatch}){
+  const [potm,setPotm]=useState("");
+  const [t0,t1]=match.teams;
+  const all=[...t0.players.map(p=>({...p,team:t0.name})),...t1.players.map(p=>({...p,team:t1.name}))];
+  const bestBatter=all.reduce((a,b)=>(b.runs||0)>(a.runs||0)?b:a,all[0]);
+  const bowlers=all.filter(p=>(p.ballsBowled||0)>0);
+  const bestBowler=bowlers.length?bowlers.reduce((a,b)=>(b.wickets||0)>(a.wickets||0)?b:a,bowlers[0]):null;
+  const bestFielder=all.reduce((a,b)=>((b.catches||0)+(b.runOuts||0)+(b.stumpings||0))>((a.catches||0)+(a.runOuts||0)+(a.stumpings||0))?b:a,all[0]);
+  const impactful=all.reduce((a,b)=>((b.runs||0)+(b.wickets||0)*20)>((a.runs||0)+(a.wickets||0)*20)?b:a,all[0]);
+  const result=t0.score>t1.score?`${t0.name} won by ${t0.score-t1.score} runs!`:t1.score>t0.score?`${t1.name} won by ${10-t1.wickets} wickets!`:"Match Tied!";
+
+  return (
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at top,#0d2030 0%,#080c10 70%)",display:"flex",flexDirection:"column",padding:18,paddingBottom:30}}>
+      <div style={{textAlign:"center",marginBottom:24,animation:"fadeInUp 0.5s ease"}}>
+        <div style={{fontSize:52,marginBottom:10}}>🏆</div>
+        <div style={{fontFamily:"Orbitron",fontSize:20,color:"var(--gold)",marginBottom:8,lineHeight:1.3}} className="glow-o">{result}</div>
+        <div style={{background:"var(--card)",borderRadius:"var(--rad)",padding:"10px 14px",display:"inline-flex",gap:16,border:"1px solid var(--border)"}}>
+          {[t0,t1].map((t,i)=>(<div key={i} style={{textAlign:"center"}}><div style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div><div style={{fontFamily:"Orbitron",fontSize:18,color:"var(--text)",fontWeight:700}}>{t.score}/{t.wickets}</div><div style={{fontSize:10,color:"var(--muted)"}}>{overStr(t.balls)} ov</div></div>))}
+        </div>
+      </div>
+
+      {/* Player of the Match — user selects */}
+      <Card title="🏅 PLAYER OF THE MATCH" style={{marginBottom:14}}>
+        <select value={potm} onChange={e=>setPotm(e.target.value)} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:potm?"var(--gold)":"var(--muted)",border:`1px solid ${potm?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:potm?10:0}}>
+          <option value="">— Select Player of the Match —</option>
+          {all.map((p,i)=><option key={i} value={p.name}>{p.name} ({p.team})</option>)}
+        </select>
+        {potm&&(
+          <div style={{background:"rgba(255,215,0,0.08)",border:"1px solid rgba(255,215,0,0.3)",borderRadius:"var(--rad)",padding:"10px 14px",textAlign:"center"}}>
+            <div style={{fontSize:22}}>⭐</div>
+            <div style={{fontFamily:"Orbitron",color:"var(--gold)",fontSize:16,fontWeight:700,marginTop:4}}>{potm}</div>
+          </div>
+        )}
+      </Card>
+
+      {/* Auto-calculated awards */}
+      <Card title="MATCH AWARDS" style={{marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <AwardCard icon="🏏" title="BEST BATTER" name={bestBatter?.name} stat={`${bestBatter?.runs||0}r (${bestBatter?.balls||0}b) · SR ${bestBatter?.balls>0?((bestBatter.runs/bestBatter.balls)*100).toFixed(0):0}`} color="var(--accent)"/>
+          <AwardCard icon="🎳" title="BEST BOWLER" name={bestBowler?.name||"—"} stat={bestBowler?`${bestBowler.wickets}w / ${bestBowler.runsConceded}r`:"No wickets"} color="var(--accent2)"/>
+          <AwardCard icon="🧤" title="BEST FIELDER" name={bestFielder?.name} stat={`C:${bestFielder?.catches||0}  RO:${bestFielder?.runOuts||0}  St:${bestFielder?.stumpings||0}`} color="var(--accent3)"/>
+          <AwardCard icon="⚡" title="IMPACT PLAYER" name={impactful?.name} stat={`${impactful?.runs||0}r · ${impactful?.wickets||0}w`} color="var(--gold)"/>
+        </div>
+      </Card>
+
+      <button onClick={onNewMatch} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
+    </div>
+  );
+}
+
+// ── HISTORY SCREEN ────────────────────────────────────────────────────────────
+function HistoryScreen({onBack,onView}){
+  const [records,setRecords]=useState([]);
+  useEffect(()=>{try{setRecords(JSON.parse(localStorage.getItem("cricscan_history")||"[]").reverse());}catch{setRecords([]);}  },[]);
+  const del=id=>{const u=records.filter(r=>r.id!==id);setRecords(u);localStorage.setItem("cricscan_history",JSON.stringify([...u].reverse()));};
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"linear-gradient(135deg,#0a1520,#0d1f2e)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={onBack} style={{background:"none",border:"none",color:"var(--accent)",fontSize:22,cursor:"pointer",lineHeight:1}}>←</button>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2}}>MATCH HISTORY</div>
+        <span style={{marginLeft:"auto",fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>{records.length} matches</span>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:14}}>
+        {records.length===0?(
+          <div style={{textAlign:"center",color:"var(--muted)",marginTop:80}}>
+            <div style={{fontSize:40,marginBottom:12}}>📋</div>
+            <div style={{fontSize:15}}>No matches recorded yet!</div>
+            <div style={{fontSize:12,marginTop:4}}>Completed matches will appear here.</div>
+          </div>
+        ):records.map(r=>(
+          <div key={r.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:14,marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"Rajdhani",fontWeight:700,fontSize:16,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.teams[0].name} vs {r.teams[1].name}</div>
+                <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
+                  <span style={{fontSize:11,color:"var(--muted)"}}>{r.date}</span>
+                  {r.format&&<span style={{fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"1px 6px",borderRadius:8,fontFamily:"Barlow Condensed",fontWeight:700}}>{r.format.toUpperCase()}</span>}
+                  {r.ballType&&<span style={{fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"1px 6px",borderRadius:8,fontFamily:"Barlow Condensed",fontWeight:700}}>{r.ballType}</span>}
                 </div>
-              ))}
+                <div style={{color:"var(--accent2)",fontSize:13,marginTop:5,fontFamily:"Barlow Condensed",fontWeight:700}}>{r.result}</div>
+              </div>
+              <button onClick={()=>del(r.id)} style={{background:"none",border:"none",color:"var(--muted)",fontSize:18,cursor:"pointer",padding:"0 0 0 8px",flexShrink:0}}>🗑</button>
             </div>
-            <button onClick={() => onView(r)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: "rgba(0,229,255,0.08)", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 13, letterSpacing: 1, cursor: "pointer" }}>VIEW SCORECARD</button>
+            <div style={{display:"flex",gap:8,marginTop:10}}>
+              {r.teams.map((t,i)=>(<div key={i} style={{flex:1,background:"var(--bg3)",borderRadius:"var(--rad)",padding:"8px 10px"}}>
+                <div style={{fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div>
+                <div style={{fontFamily:"Orbitron",fontSize:18,color:"var(--text)",fontWeight:700,marginTop:2}}>{t.score}<span style={{color:"var(--danger)",fontSize:12}}>/{t.wickets}</span></div>
+                <div style={{fontSize:11,color:"var(--muted)"}}>({overStr(t.balls)} ov)</div>
+              </div>))}
+            </div>
+            <button onClick={()=>onView(r)} style={{width:"100%",marginTop:10,padding:"8px 0",background:"rgba(0,229,255,0.06)",color:"var(--accent)",border:"1px solid rgba(0,229,255,0.25)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>VIEW FULL SCORECARD →</button>
           </div>
         ))}
       </div>
@@ -765,330 +773,190 @@ function HistoryScreen({ onBack, onView }) {
   );
 }
 
-// ─── MAIN APP ──────────────────────────────────────────────────────────────────
-export default function App() {
-  const [screen, setScreen] = useState("setup"); // setup | camera | scoring | scorecard | result | history
-  const [match, setMatch] = useState(null);
-  const [showWicket, setShowWicket] = useState(false);
-  const [showBowlerSelect, setShowBowlerSelect] = useState(false);
-  const [historyMatch, setHistoryMatch] = useState(null);
-  const [showStrikeSwap, setShowStrikeSwap] = useState(false);
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
+export default function App(){
+  const [screen,setScreen]=useState("splash");
+  const [match,setMatch]=useState(null);
+  const [showWicket,setShowWicket]=useState(false);
+  const [showBowlerSelect,setShowBowlerSelect]=useState(false);
+  const [showStrikeSwap,setShowStrikeSwap]=useState(false);
+  const [historyMatch,setHistoryMatch]=useState(null);
+  const [stumpsType,setStumpsType]=useState(null);
 
-  // ── Restore live match on reload ──
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("cricscan_live");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!parsed.ended) { setMatch(parsed); setScreen("scoring"); }
-      }
-    } catch {}
-  }, []);
+  // Restore live match on reload
+  useEffect(()=>{
+    try{const s=localStorage.getItem("cricscan_live");if(s){const p=JSON.parse(s);if(!p.ended){setMatch(p);setScreen("scoring");return;}}setScreen("splash");}catch{}
+  },[]);
 
-  // ── Auto-save live match every time it changes ──
-  useEffect(() => {
-    if (match && !match.ended) {
-      try { localStorage.setItem("cricscan_live", JSON.stringify(match)); } catch {}
-    }
-  }, [match]);
+  // Auto-save every change
+  useEffect(()=>{if(match&&!match.ended){try{localStorage.setItem("cricscan_live",JSON.stringify(match));}catch{}}},[match]);
 
-  const startMatch = useCallback(({ team1name, team2name, overs, players1, players2 }) => {
-    const mkPlayers = (names) => names.map(n => ({ name: n, runs: 0, balls: 0, fours: 0, sixes: 0, dismissed: false, dismissal: "", ballsBowled: 0, overs: 0, wickets: 0, maidens: 0, runsConceded: 0 }));
-    const t0 = { ...initTeam(team1name), players: mkPlayers(players1), fow: [] };
-    const t1 = { ...initTeam(team2name), players: mkPlayers(players2), fow: [] };
-    setMatch({
-      teams: [t0, t1], overs,
-      batting: 0, bowling: 1,
-      inning: 0,
-      striker: { ...mkPlayers([players1[0]])[0] },
-      nonStriker: { ...mkPlayers([players1[1]])[0] },
-      strikerIdx: 0, nonStrikerIdx: 1, nextBatterIdx: 2,
-      currentBowler: { ...mkPlayers([players2[0]])[0] },
-      currentBowlerIdx: 0,
-      history: [],
-      zones: [],
-    });
+  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2})=>{
+    const t0=mkTeam(team1,players1);const t1=mkTeam(team2,players2);
+    setMatch({teams:[t0,t1],overs,format,ballType,batting:0,bowling:1,inning:0,
+      striker:{...t0.players[0]},nonStriker:{...t0.players[1]},strikerIdx:0,nonStrikerIdx:1,nextBatterIdx:2,
+      currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[]});
     setScreen("camera");
-  }, []);
+  },[]);
 
-  const handleBall = useCallback((runs, type) => {
-    setMatch(m => {
-      const nm = JSON.parse(JSON.stringify(m));
-      const bt = nm.teams[nm.batting];
-      const bw = nm.teams[nm.bowling];
-      const striker = nm.striker;
-      const bowler = nm.currentBowler;
+  const addComm=(nm,text)=>{const bt=nm.teams[nm.batting];if(!bt.commentary)bt.commentary=[];bt.commentary.push(`${overStr(bt.balls)} · ${text}`);};
 
-      const isExtra = type === "wide" || type === "noBall";
-      const isLegal = !isExtra;
+  const handleBall=useCallback((runs,type)=>{
+    setMatch(m=>{
+      const nm=JSON.parse(JSON.stringify(m));
+      const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
+      const striker=nm.striker;const bowler=nm.currentBowler;
+      const isExtra=type==="wide"||type==="noBall";const isLegal=!isExtra;
 
-      // runs
-      bt.score += runs + (isExtra ? 1 : 0);
-      if (isExtra) bt.extras[type] = (bt.extras[type] || 0) + 1 + (runs > 0 ? runs : 0);
+      bt.score+=runs+(isExtra?1:0);
+      if(isExtra)bt.extras[type]=(bt.extras[type]||0)+1+(runs>0?runs:0);
+      if(isLegal||type==="bye"||type==="legBye"){striker.balls++;bt.balls++;bowler.ballsBowled++;}
+      if(type==="normal"||type==="camera"){striker.runs+=runs;if(runs===4)striker.fours++;if(runs===6)striker.sixes++;}
+      bowler.runsConceded=(bowler.runsConceded||0)+runs+(isExtra?1:0);
 
-      // striker stats
-      if (isLegal || type === "bye" || type === "legBye") { striker.balls++; bt.balls++; bowler.ballsBowled++; }
-      if (type === "normal" || type === "camera") {
-        striker.runs += runs;
-        if (runs === 4) striker.fours++;
-        if (runs === 6) striker.sixes++;
-      }
+      nm.striker=striker;nm.currentBowler=bowler;
+      bt.players[nm.strikerIdx]={...bt.players[nm.strikerIdx],runs:striker.runs,balls:striker.balls,fours:striker.fours,sixes:striker.sixes};
+      bw.players[nm.currentBowlerIdx]={...bw.players[nm.currentBowlerIdx],runsConceded:bowler.runsConceded,ballsBowled:bowler.ballsBowled};
 
-      // bowler concedes
-      bowler.runs += runs + (isExtra ? 1 : 0);
-      // sync back
-      nm.striker = striker;
-      nm.currentBowler = bowler;
-      // sync to team arrays
-      bt.players[nm.strikerIdx] = { ...bt.players[nm.strikerIdx], runs: striker.runs, balls: striker.balls, fours: striker.fours, sixes: striker.sixes };
-      bw.players[nm.currentBowlerIdx] = { ...bw.players[nm.currentBowlerIdx], runs: bowler.runs, ballsBowled: bowler.ballsBowled };
+      addComm(nm,type==="wide"?"Wide ball":type==="noBall"?`No ball (${runs} run${runs!==1?"s":""})`:runs===4?`FOUR! ${striker.name} drives to the boundary`:runs===6?`SIX! ${striker.name} goes big!`:runs===0?`Dot ball. Defended by ${striker.name}.`:`${runs} run${runs>1?"s":""} taken by ${striker.name}`);
 
-      // over end check (before strike rotation)
-      const overBalls = bt.balls % 6;
-      const overEnded = isLegal && overBalls === 0 && bt.balls > 0;
-      if (overEnded) {
-        bt.overs.push([]);
-        nm.needBowler = true;
-        // auto swap at over end
-        const tmp2 = nm.striker; nm.striker = nm.nonStriker; nm.nonStriker = tmp2;
-        const tmpI2 = nm.strikerIdx; nm.strikerIdx = nm.nonStrikerIdx; nm.nonStrikerIdx = tmpI2;
-      } else {
-        if (!bt.overs.length) bt.overs.push([]);
-        bt.overs[bt.overs.length - 1].push({ runs, type });
-      }
+      const overEnded=isLegal&&bt.balls%6===0&&bt.balls>0;
+      if(overEnded){bt.overs.push([]);nm.needBowler=true;const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;}
+      else{if(!bt.overs.length)bt.overs.push([]);bt.overs[bt.overs.length-1].push({runs,type});}
 
-      // strike rotation — for odd runs, ask user (set flag)
-      if (isLegal && !overEnded && runs % 2 === 1) {
-        nm.pendingStrikeSwap = true;
-      }
-
-      // history for undo
-      nm.history.push({ bt: JSON.parse(JSON.stringify(bt)), striker: JSON.parse(JSON.stringify(striker)), bowler: JSON.parse(JSON.stringify(bowler)) });
-
+      if(isLegal&&!overEnded&&runs%2===1)nm.pendingStrikeSwap=true;
+      nm.history.push({score:bt.score,balls:bt.balls});
       return nm;
     });
-  }, []);
+  },[]);
 
-  const handleWicket = () => setShowWicket(true);
+  const handleWicket=()=>setShowWicket(true);
 
-  const confirmWicket = ({ outIdx, dismissal, newBatter }) => {
+  const confirmWicket=({outIdx,dismissal,fielder})=>{
     setShowWicket(false);
-    setMatch(m => {
-      const nm = JSON.parse(JSON.stringify(m));
-      const bt = nm.teams[nm.batting];
-      bt.wickets++;
-      bt.balls++;
-      bt.overs[bt.overs.length - 1]?.push({ runs: 0, type: "wicket" });
-      // mark dismissed
-      bt.players[nm.strikerIdx].dismissed = true;
-      bt.players[nm.strikerIdx].dismissal = dismissal;
-      bt.fow.push({ score: bt.score, name: bt.players[nm.strikerIdx].name, over: over(bt.balls) });
-      // bowler wicket
-      nm.currentBowler.wickets = (nm.currentBowler.wickets || 0) + 1;
-      nm.teams[nm.bowling].players[nm.currentBowlerIdx].wickets = nm.currentBowler.wickets;
-      // new batter
-      if (newBatter) {
-        const idx = bt.players.findIndex(p => p.name === newBatter);
-        nm.strikerIdx = idx >= 0 ? idx : nm.nextBatterIdx;
-        nm.striker = { ...bt.players[nm.strikerIdx] };
-        nm.nextBatterIdx++;
-      }
-      // check innings end
-      if (bt.wickets >= 10 || bt.balls >= nm.overs * 6) nm.needInningsEnd = true;
+    setMatch(m=>{
+      const nm=JSON.parse(JSON.stringify(m));
+      const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
+      bt.wickets++;bt.balls++;
+      if(!bt.overs.length)bt.overs.push([]);
+      bt.overs[bt.overs.length-1].push({runs:0,type:"wicket"});
+      bt.players[nm.strikerIdx].dismissed=true;
+      bt.players[nm.strikerIdx].dismissal=dismissal;
+      bt.players[nm.strikerIdx].catchBy=fielder||"";
+      bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx].name,over:overStr(bt.balls)});
+      nm.currentBowler.wickets=(nm.currentBowler.wickets||0)+1;
+      bw.players[nm.currentBowlerIdx].wickets=nm.currentBowler.wickets;
+      if(fielder){const fi=bw.players.findIndex(p=>p.name===fielder);if(fi>=0){if(dismissal==="Caught")bw.players[fi].catches=(bw.players[fi].catches||0)+1;if(dismissal==="Run Out")bw.players[fi].runOuts=(bw.players[fi].runOuts||0)+1;if(dismissal==="Stumped")bw.players[fi].stumpings=(bw.players[fi].stumpings||0)+1;}}
+      addComm(nm,`WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` by ${fielder}`:""}`);
+      const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
+      if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
+      if(bt.wickets>=10||bt.balls>=nm.overs*6)nm.needInningsEnd=true;
       return nm;
     });
   };
 
-  const handleUndo = () => {
-    setMatch(m => {
-      if (!m.history.length) return m;
-      const nm = JSON.parse(JSON.stringify(m));
-      nm.history.pop();
-      // simple undo — just decrement last ball (full undo state would be more complex)
-      const bt = nm.teams[nm.batting];
-      const last = bt.overs[bt.overs.length - 1];
-      if (last?.length) {
-        const ball = last.pop();
-        if (ball.type !== "wide" && ball.type !== "noBall") { bt.balls = Math.max(0, bt.balls - 1); }
-        bt.score = Math.max(0, bt.score - ball.runs);
-      }
+  const handleUndo=()=>{
+    setMatch(m=>{
+      if(!m.history.length)return m;
+      const nm=JSON.parse(JSON.stringify(m));nm.history.pop();
+      const bt=nm.teams[nm.batting];const last=bt.overs[bt.overs.length-1];
+      if(last?.length){const ball=last.pop();if(ball.type!=="wide"&&ball.type!=="noBall")bt.balls=Math.max(0,bt.balls-1);bt.score=Math.max(0,bt.score-ball.runs);}
+      if(bt.commentary?.length)bt.commentary.pop();
       return nm;
     });
   };
 
-  const handleEndInnings = () => {
-    setMatch(m => {
-      const nm = JSON.parse(JSON.stringify(m));
-      if (nm.inning === 0) {
-        nm.inning = 1;
-        nm.batting = 1; nm.bowling = 0;
-        const p2 = nm.teams[1].players;
-        nm.striker = { ...p2[0] }; nm.strikerIdx = 0;
-        nm.nonStriker = { ...p2[1] }; nm.nonStrikerIdx = 1;
-        nm.nextBatterIdx = 2;
-        nm.currentBowler = { ...nm.teams[0].players[0] }; nm.currentBowlerIdx = 0;
-        nm.needBowler = false;
+  const saveHistory=m=>{
+    try{
+      const [t0,t1]=m.teams;
+      const result=t0.score>t1.score?`${t0.name} won by ${t0.score-t1.score} runs`:t1.score>t0.score?`${t1.name} won by ${10-t1.wickets} wickets`:"Match Tied";
+      const rec={id:Date.now(),date:new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}),overs:m.overs,format:m.format,ballType:m.ballType,
+        teams:[{name:t0.name,score:t0.score,wickets:t0.wickets,balls:t0.balls,players:t0.players,extras:t0.extras,fow:t0.fow,commentary:t0.commentary},{name:t1.name,score:t1.score,wickets:t1.wickets,balls:t1.balls,players:t1.players,extras:t1.extras,fow:t1.fow,commentary:t1.commentary}],result};
+      const prev=JSON.parse(localStorage.getItem("cricscan_history")||"[]");prev.push(rec);
+      localStorage.setItem("cricscan_history",JSON.stringify(prev));localStorage.removeItem("cricscan_live");
+    }catch{}
+  };
+
+  const handleEndInnings=useCallback(()=>{
+    setMatch(m=>{
+      if(!m)return m;
+      const nm=JSON.parse(JSON.stringify(m));
+      const maxInnings=nm.format==="test"?3:1;
+      if(nm.inning<maxInnings){
+        nm.inning++;const nb=nm.inning%2;const nw=1-nb;
+        nm.batting=nb;nm.bowling=nw;
+        const p=nm.teams[nb].players;
+        nm.striker={...p[0]};nm.strikerIdx=0;nm.nonStriker={...p[1]};nm.nonStrikerIdx=1;nm.nextBatterIdx=2;
+        nm.currentBowler={...nm.teams[nw].players[0]};nm.currentBowlerIdx=0;nm.needBowler=false;
+        if(nm.format==="test"){nm.teams[nb].players.forEach(p=>{p.runs=0;p.balls=0;p.dismissed=false;p.dismissal="";p.catchBy="";});nm.teams[nb].score=0;nm.teams[nb].wickets=0;nm.teams[nb].balls=0;nm.teams[nb].overs=[];nm.teams[nb].fow=[];}
         return nm;
       }
-      nm.ended = true;
-      return nm;
+      nm.ended=true;return nm;
     });
-    if (match?.inning === 1) {
-      // save to history
-      try {
-        const m = match;
-        const [t0, t1] = m.teams;
-        let result = "";
-        if (t0.score > t1.score) result = `${t0.name} won by ${t0.score - t1.score} runs`;
-        else if (t1.score > t0.score) result = `${t1.name} won by ${10 - t1.wickets} wickets`;
-        else result = "Match Tied";
-        const record = {
-          id: Date.now(),
-          date: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-          overs: m.overs,
-          teams: [
-            { name: t0.name, score: t0.score, wickets: t0.wickets, balls: t0.balls, players: t0.players, extras: t0.extras, fow: t0.fow },
-            { name: t1.name, score: t1.score, wickets: t1.wickets, balls: t1.balls, players: t1.players, extras: t1.extras, fow: t1.fow }
-          ],
-          result,
-        };
-        const prev = JSON.parse(localStorage.getItem("cricscan_history") || "[]");
-        prev.push(record);
-        localStorage.setItem("cricscan_history", JSON.stringify(prev));
-        localStorage.removeItem("cricscan_live");
-      } catch {}
-      setScreen("result");
-    }
-  };
+    setTimeout(()=>{
+      setMatch(m=>{
+        if(m?.ended||(m?.inning>=(m?.format==="test"?3:1))){saveHistory(m);setScreen("result");}
+        return m;
+      });
+    },100);
+  },[]);
 
-  const confirmBowler = (name) => {
-    setMatch(m => {
-      const nm = JSON.parse(JSON.stringify(m));
-      const bwTeam = nm.teams[nm.bowling];
-      const idx = bwTeam.players.findIndex(p => p.name === name);
-      if (idx >= 0) { nm.currentBowler = { ...bwTeam.players[idx] }; nm.currentBowlerIdx = idx; }
-      nm.needBowler = false;
-      return nm;
-    });
+  const confirmBowler=name=>{
+    setMatch(m=>{const nm=JSON.parse(JSON.stringify(m));const idx=nm.teams[nm.bowling].players.findIndex(p=>p.name===name);if(idx>=0){nm.currentBowler={...nm.teams[nm.bowling].players[idx]};nm.currentBowlerIdx=idx;}nm.needBowler=false;return nm;});
     setShowBowlerSelect(false);
   };
 
-  useEffect(() => {
-    if (match?.needBowler && !showBowlerSelect) setShowBowlerSelect(true);
-    if (match?.needInningsEnd) handleEndInnings();
-    if (match?.pendingStrikeSwap && !showStrikeSwap) setShowStrikeSwap(true);
-  }, [match?.needBowler, match?.needInningsEnd, match?.pendingStrikeSwap]);
-
-  const confirmStrikeSwap = (doSwap) => {
-    setShowStrikeSwap(false);
-    setMatch(m => {
-      const nm = JSON.parse(JSON.stringify(m));
-      nm.pendingStrikeSwap = false;
-      if (doSwap) {
-        const tmp = nm.striker; nm.striker = nm.nonStriker; nm.nonStriker = tmp;
-        const tmpI = nm.strikerIdx; nm.strikerIdx = nm.nonStrikerIdx; nm.nonStrikerIdx = tmpI;
-      }
-      return nm;
-    });
+  const doStrikeSwap=()=>{
+    setMatch(m=>{const nm=JSON.parse(JSON.stringify(m));nm.pendingStrikeSwap=false;const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;return nm;});
   };
+  const cancelStrikeSwap=()=>{setMatch(m=>{const nm=JSON.parse(JSON.stringify(m));nm.pendingStrikeSwap=false;return nm;});};
 
-  useEffect(() => {
-    if (!match) return;
-    const bt = match.teams[match.batting];
-    if (bt.wickets >= 10 || bt.balls >= match.overs * 6) {
-      if (match.inning === 0) handleEndInnings();
-      else setScreen("result");
+  useEffect(()=>{
+    if(match?.needBowler&&!showBowlerSelect)setShowBowlerSelect(true);
+    if(match?.needInningsEnd)handleEndInnings();
+    if(match?.pendingStrikeSwap&&!showStrikeSwap)setShowStrikeSwap(true);
+  },[match?.needBowler,match?.needInningsEnd,match?.pendingStrikeSwap]);
+
+  useEffect(()=>{
+    if(!match)return;
+    const bt=match.teams[match.batting];
+    if(bt.wickets>=10||bt.balls>=match.overs*6){
+      if(match.inning<(match.format==="test"?3:1))handleEndInnings();
+      else{saveHistory(match);setScreen("result");}
     }
-  }, [match?.teams?.[0]?.balls, match?.teams?.[1]?.balls, match?.teams?.[0]?.wickets, match?.teams?.[1]?.wickets]);
+  },[match?.teams?.[0]?.balls,match?.teams?.[1]?.balls,match?.teams?.[0]?.wickets,match?.teams?.[1]?.wickets]);
 
-  const handleNewMatch = () => {
-    localStorage.removeItem("cricscan_live");
-    setMatch(null);
-    setScreen("setup");
-  };
+  const handleNewMatch=()=>{localStorage.removeItem("cricscan_live");setMatch(null);setScreen("setup");};
 
   return (
     <>
-      <FontLink />
-      {screen === "setup" && (
-        <div style={{ position: "relative" }}>
-          <button onClick={() => setScreen("history")} style={{ position: "absolute", top: 20, right: 16, zIndex: 10, background: "var(--bg3)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: "var(--rad)", padding: "6px 12px", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 13, letterSpacing: 1, cursor: "pointer" }}>📋 HISTORY</button>
-          <SetupScreen onStart={startMatch} />
+      <FontLink/>
+      {screen==="splash"&&<SplashScreen onStart={()=>setScreen("setup")}/>}
+      {screen==="setup"&&(
+        <div style={{position:"relative"}}>
+          <button onClick={()=>setScreen("history")} style={{position:"absolute",top:16,right:16,zIndex:10,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 12px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>📋 HISTORY</button>
+          <SetupScreen onStart={startMatch}/>
         </div>
       )}
-      {screen === "camera" && (
-        <CameraSetup
-          onDone={zones => { setMatch(m => ({ ...m, zones })); setScreen("scoring"); }}
-          onSkip={() => setScreen("scoring")}
-        />
-      )}
-      {screen === "scoring" && match && (
+      {screen==="camera"&&<CameraSetup onDone={z=>{setMatch(m=>({...m,zones:z}));setScreen("scoring");}} onSkip={()=>setScreen("scoring")}/>}
+      {screen==="scoring"&&match&&(
         <>
-          <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--bg2)" }}>
-            <NavBtn active={true} label="SCORE" />
-            <NavBtn onClick={() => setScreen("scorecard")} label="CARD" />
-            <NavBtn onClick={() => setScreen("history")} label="HISTORY" />
+          <div style={{display:"flex",borderBottom:"1px solid var(--border)",background:"var(--bg2)"}}>
+            <NavBtn active label="SCORE"/>
+            <NavBtn onClick={()=>setScreen("scorecard")} label="SCORECARD"/>
+            <NavBtn onClick={()=>setScreen("history")} label="HISTORY"/>
           </div>
-          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} />
-          {showWicket && (
-            <WicketDialog
-              batters={[match.striker, match.nonStriker]}
-              bowlers={match.teams[match.batting].players.filter((_, i) => i !== match.strikerIdx && i !== match.nonStrikerIdx && !match.teams[match.batting].players[i]?.dismissed)}
-              onConfirm={confirmWicket}
-              onCancel={() => setShowWicket(false)}
-            />
-          )}
-          {showBowlerSelect && (
-            <BowlerSelectDialog
-              players={match.teams[match.bowling].players}
-              currentBowler={match.currentBowler?.name}
-              onSelect={confirmBowler}
-            />
-          )}
-          {showStrikeSwap && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}>
-              <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad2)", padding: 22, width: "100%", maxWidth: 340, animation: "fadeInUp 0.3s ease", textAlign: "center" }}>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
-                <div style={{ fontFamily: "'Orbitron',sans-serif", color: "var(--accent)", fontSize: 14, letterSpacing: 2, marginBottom: 8 }}>CHANGE STRIKE?</div>
-                <div style={{ color: "var(--muted)", fontSize: 14, marginBottom: 6 }}>
-                  <span style={{ color: "var(--accent)", fontWeight: 700 }}>{match.striker?.name}</span> scored an odd number of runs.
-                </div>
-                <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
-                  Should strike go to <span style={{ color: "var(--text)", fontWeight: 600 }}>{match.nonStriker?.name}</span>?
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => confirmStrikeSwap(false)} style={{ flex: 1, padding: "12px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1 }}>
-                    NO CHANGE
-                  </button>
-                  <button onClick={() => confirmStrikeSwap(true)} style={{ flex: 1, padding: "12px 0", background: "var(--accent)", color: "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "'Orbitron',sans-serif", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>
-                    YES SWAP ✓
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap}/>
+          {showWicket&&<WicketDialog batters={[match.striker,match.nonStriker]} fieldingTeam={match.teams[match.bowling].players} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
+          {showBowlerSelect&&<BowlerSelectDialog players={match.teams[match.bowling].players} currentBowler={match.currentBowler?.name} onSelect={confirmBowler}/>}
+          {showStrikeSwap&&<StrikeSwapDialog striker={match.striker} nonStriker={match.nonStriker} onConfirm={()=>{doStrikeSwap();setShowStrikeSwap(false);}} onCancel={()=>{cancelStrikeSwap();setShowStrikeSwap(false);}}/>}
+          {stumpsType&&<StumpsDialog type={stumpsType} onResume={()=>setStumpsType(null)} onEnd={()=>{setStumpsType(null);handleEndInnings();}}/>}
         </>
       )}
-      {screen === "scorecard" && match && <ScorecardScreen match={match} onBack={() => setScreen("scoring")} />}
-      {screen === "result" && match && <ResultScreen match={match} onNewMatch={handleNewMatch} />}
-      {screen === "history" && (
-        <HistoryScreen
-          onBack={() => setScreen(match ? "scoring" : "setup")}
-          onView={r => { setHistoryMatch(r); setScreen("historycard"); }}
-        />
-      )}
-      {screen === "historycard" && historyMatch && (
-        <ScorecardScreen
-          match={{ teams: historyMatch.teams, batting: 0, bowling: 1 }}
-          onBack={() => setScreen("history")}
-        />
-      )}
+      {screen==="scorecard"&&match&&<ScorecardScreen match={match} onBack={()=>setScreen("scoring")}/>}
+      {screen==="result"&&match&&<ResultScreen match={match} onNewMatch={handleNewMatch}/>}
+      {screen==="history"&&<HistoryScreen onBack={()=>setScreen(match?"scoring":"setup")} onView={r=>{setHistoryMatch(r);setScreen("historycard");}}/>}
+      {screen==="historycard"&&historyMatch&&<ScorecardScreen match={{teams:historyMatch.teams,batting:0,bowling:1,format:historyMatch.format,ballType:historyMatch.ballType}} onBack={()=>setScreen("history")}/>}
     </>
-  );
-}
-
-function NavBtn({ label, onClick, active }) {
-  return (
-    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", background: "transparent", color: active ? "var(--accent)" : "var(--muted)", border: "none", borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent", fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 13, letterSpacing: 2, cursor: "pointer" }}>{label}</button>
   );
 }
