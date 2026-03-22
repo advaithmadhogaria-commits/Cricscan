@@ -801,7 +801,7 @@ function SetupScreen({onStart}){
   const [isPublic,setIsPublic]=useState(true);
   const [tab,setTab]=useState(0);
 
-  // Load saved data on mount
+  // Load saved data
   useEffect(()=>{
     try{
       const saved=JSON.parse(localStorage.getItem("cricscan_teams")||"{}");
@@ -816,14 +816,16 @@ function SetupScreen({onStart}){
     }catch{}
   },[]);
 
-  // Save data whenever it changes
+  // Auto-save
   useEffect(()=>{
-    try{
-      localStorage.setItem("cricscan_teams",JSON.stringify({team1,team2,players1,players2,captain1,captain2,wk1,wk2}));
-    }catch{}
+    try{ localStorage.setItem("cricscan_teams",JSON.stringify({team1,team2,players1,players2,captain1,captain2,wk1,wk2})); }catch{}
   },[team1,team2,players1,players2,captain1,captain2,wk1,wk2]);
 
-  const upd=(team,idx,val)=>{if(team===0){const a=[...players1];a[idx]=val;setPlayers1(a);}else{const a=[...players2];a[idx]=val;setPlayers2(a);}};
+  const upd=(team,idx,val)=>{
+    if(team===0){const a=[...players1];a[idx]=val;setPlayers1(a);}
+    else{const a=[...players2];a[idx]=val;setPlayers2(a);}
+  };
+
   const clearSaved=()=>{
     localStorage.removeItem("cricscan_teams");
     setTeam1("Team Alpha");setTeam2("Team Bravo");
@@ -832,9 +834,12 @@ function SetupScreen({onStart}){
     setCaptain1(0);setCaptain2(0);setWk1(6);setWk2(6);
   };
 
+  if(showToss) return <CoinTossScreen team1={team1} team2={team2} onComplete={r=>{setTossResult(r);setShowToss(false);}}/>;
+
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,#0d1f2d 0%,#080c10 70%)"}}>
       <div style={{width:"100%",maxWidth:460}}>
+        {/* Logo */}
         <div style={{textAlign:"center",marginBottom:24,animation:"fadeInUp 0.6s ease"}}>
           <div style={{fontFamily:"Orbitron",fontSize:26,letterSpacing:3,color:"var(--accent)"}} className="glow">🏏 CRICSCAN</div>
           <div style={{color:"var(--muted)",fontSize:11,letterSpacing:2,marginTop:3}}>AI POWERED SCORER</div>
@@ -842,7 +847,7 @@ function SetupScreen({onStart}){
 
         {/* Step indicator */}
         <div style={{display:"flex",gap:8,marginBottom:20,justifyContent:"center"}}>
-          {["Match Info","Squads"].map((s,i)=>(
+          {["Match Info","Squads & Toss"].map((s,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
               <div style={{width:22,height:22,borderRadius:"50%",background:step>=i?"var(--accent)":"var(--bg3)",border:`1px solid ${step>=i?"var(--accent)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:step>=i?"#000":"var(--muted)",fontFamily:"Orbitron"}}>{i+1}</div>
               <span style={{fontSize:12,color:step===i?"var(--accent)":"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{s}</span>
@@ -851,46 +856,42 @@ function SetupScreen({onStart}){
           ))}
         </div>
 
-        {step===0 && (
+        {/* STEP 0 — Match Info */}
+        {step===0&&(
           <div style={{animation:"fadeInUp 0.3s ease"}}>
-            <Card title="TEAM NAMES" style={{marginBottom:12}}>
-              <Label>Team 1</Label>
-              <input value={team1} onChange={e=>setTeam1(e.target.value)} style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:10}} />
-              <Label>Team 2</Label>
-              <input value={team2} onChange={e=>setTeam2(e.target.value)} style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}} />
-            </Card>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>TEAM NAMES</div>
+              <div style={{fontSize:11,color:"var(--muted)",marginBottom:4,letterSpacing:1}}>TEAM 1</div>
+              <input value={team1} onChange={e=>setTeam1(e.target.value)} style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:10}}/>
+              <div style={{fontSize:11,color:"var(--muted)",marginBottom:4,letterSpacing:1}}>TEAM 2</div>
+              <input value={team2} onChange={e=>setTeam2(e.target.value)} style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}/>
+            </div>
 
-            <Card title="MATCH FORMAT" style={{marginBottom:12}}>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>MATCH FORMAT</div>
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 {[["limited","🏏 Limited Overs"],["test","📋 Test Match"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setFormat(v)} style={{flex:1,padding:"10px 0",background:format===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:format===v?"var(--accent)":"var(--muted)",border:`2px solid ${format===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>{l}</button>
                 ))}
               </div>
-
-              {format==="limited" && (
-                <>
-                  <Label>Number of Overs</Label>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
-                    {[5,10,20,50].map(o=>(<button key={o} onClick={()=>setOvers(o)} style={{flex:1,padding:"9px 0",background:overs===o?"var(--accent)":"var(--bg3)",color:overs===o?"#000":"var(--text)",border:`1px solid ${overs===o?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>{o}</button>))}
-                    <input type="number" value={overs} onChange={e=>setOvers(Number(e.target.value))} placeholder="Custom" style={{width:70,padding:"9px 8px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:14,textAlign:"center"}} />
-                  </div>
-                </>
-              )}
-
-              {format==="test" && (
-                <div style={{padding:"10px 12px",background:"rgba(0,229,255,0.05)",borderRadius:"var(--rad)",border:"1px solid rgba(0,229,255,0.15)",fontSize:13,color:"var(--muted)"}}>
-                  📋 4 innings · Unlimited overs · Stumps, Tea, Lunch & Rain breaks available
+              {format==="limited"&&<>
+                <div style={{fontSize:11,color:"var(--muted)",marginBottom:6,letterSpacing:1}}>OVERS</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {[5,10,20,50].map(o=>(<button key={o} onClick={()=>setOvers(o)} style={{flex:1,padding:"9px 0",background:overs===o?"var(--accent)":"var(--bg3)",color:overs===o?"#000":"var(--text)",border:`1px solid ${overs===o?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>{o}</button>))}
+                  <input type="number" value={overs} onChange={e=>setOvers(Number(e.target.value))} style={{width:60,padding:"9px 8px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:14,textAlign:"center"}}/>
                 </div>
-              )}
-            </Card>
+              </>}
+              {format==="test"&&<div style={{padding:"8px 12px",background:"rgba(0,229,255,0.05)",borderRadius:"var(--rad)",color:"var(--muted)",fontSize:12}}>4 innings · Unlimited overs · Stumps/Tea/Lunch available</div>}
+            </div>
 
-            <Card title="BALL TYPE" style={{marginBottom:20}}>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:20}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>BALL TYPE</div>
               <div style={{display:"flex",gap:8}}>
                 {[["tennis","🎾 Tennis"],["rubber","⚫ Rubber"],["hard","🔴 Hard Ball"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setBallType(v)} style={{flex:1,padding:"10px 0",background:ballType===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:ballType===v?"var(--accent)":"var(--muted)",border:`2px solid ${ballType===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{l}</button>
                 ))}
               </div>
-            </Card>
+            </div>
 
             <button onClick={()=>setStep(1)} style={{width:"100%",padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>
               NEXT: ADD PLAYERS →
@@ -898,9 +899,13 @@ function SetupScreen({onStart}){
           </div>
         )}
 
-        {step===1 && (
+        {/* STEP 1 — Squads + Toss + Privacy */}
+        {step===1&&(
           <div style={{animation:"fadeInUp 0.3s ease"}}>
-            <Card title="SQUAD SETUP" style={{marginBottom:12}}>
+
+            {/* Squad */}
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>SQUAD SETUP</div>
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 {[team1,team2].map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{flex:1,padding:"8px 0",background:tab===i?"var(--accent2)":"var(--bg3)",color:tab===i?"#fff":"var(--muted)",border:`1px solid ${tab===i?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{t}</button>))}
               </div>
@@ -913,50 +918,68 @@ function SetupScreen({onStart}){
                   return (
                     <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
                       <span style={{color:"var(--muted)",fontSize:10,minWidth:14,fontFamily:"Orbitron",textAlign:"center"}}>{i+1}</span>
-                      <input value={p} onChange={e=>upd(tab,i,e.target.value)} style={{flex:1,padding:"6px 8px",background:"var(--bg3)",color:"var(--text)",border:`1px solid ${isCap||isWk?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:13}} />
-                      <button onClick={()=>setCap(i)} title="Set Captain" style={{width:28,height:28,background:isCap?"rgba(255,215,0,0.25)":"var(--bg3)",color:isCap?"var(--gold)":"var(--muted)",border:`1px solid ${isCap?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:11,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>C</button>
-                      <button onClick={()=>setWkFn(i)} title="Set Wicketkeeper" style={{width:28,height:28,background:isWk?"rgba(0,229,255,0.2)":"var(--bg3)",color:isWk?"var(--accent)":"var(--muted)",border:`1px solid ${isWk?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:9,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>WK</button>
+                      <input value={p} onChange={e=>upd(tab,i,e.target.value)} style={{flex:1,padding:"6px 8px",background:"var(--bg3)",color:"var(--text)",border:`1px solid ${isCap||isWk?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:13}}/>
+                      <button onClick={()=>setCap(i)} style={{width:28,height:28,background:isCap?"rgba(255,215,0,0.25)":"var(--bg3)",color:isCap?"var(--gold)":"var(--muted)",border:`1px solid ${isCap?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:11,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>C</button>
+                      <button onClick={()=>setWkFn(i)} style={{width:28,height:28,background:isWk?"rgba(0,229,255,0.2)":"var(--bg3)",color:isWk?"var(--accent)":"var(--muted)",border:`1px solid ${isWk?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:9,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>WK</button>
                     </div>
                   );
                 })}
               </div>
-              <div style={{marginTop:8,fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>
-                Tap <b style={{color:"var(--gold)"}}>C</b> to set Captain &nbsp;·&nbsp; <b style={{color:"var(--accent)"}}>WK</b> to set Wicketkeeper
-              </div>
-            </Card>
+              <div style={{marginTop:8,fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>Tap <b style={{color:"var(--gold)"}}>C</b> = Captain &nbsp;·&nbsp; <b style={{color:"var(--accent)"}}>WK</b> = Wicketkeeper</div>
+            </div>
 
-            <Card title="🪙 TOSS" style={{marginBottom:14}}>
-              <div style={{fontSize:12,color:"var(--muted)",marginBottom:5,letterSpacing:1}}>WHO WON THE TOSS?</div>
-              <div style={{display:"flex",gap:8,marginBottom:12}}>
-                {[team1,team2].map((t,i)=>(<button key={i} onClick={()=>setTossWinner(i)} style={{flex:1,padding:"8px 0",background:tossWinner===i?"rgba(255,215,0,0.15)":"var(--bg3)",color:tossWinner===i?"var(--gold)":"var(--muted)",border:`1px solid ${tossWinner===i?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{t}</button>))}
-              </div>
-              <div style={{fontSize:12,color:"var(--muted)",marginBottom:5,letterSpacing:1}}>ELECTED TO?</div>
+            {/* Toss */}
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>🪙 TOSS</div>
+              {tossResult?(
+                <div>
+                  <div style={{background:"rgba(255,215,0,0.08)",border:"1px solid rgba(255,215,0,0.25)",borderRadius:"var(--rad)",padding:"10px 14px",textAlign:"center",marginBottom:8}}>
+                    <div style={{fontFamily:"Barlow Condensed",color:"var(--gold)",fontSize:14,fontWeight:700}}>{tossResult.tossMsg}</div>
+                    <div style={{color:"var(--muted)",fontSize:11,marginTop:3}}>Batting first: {[team1,team2][tossResult.battingFirst]}</div>
+                  </div>
+                  <button onClick={()=>setTossResult(null)} style={{width:"100%",padding:"8px 0",background:"transparent",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>↺ Redo Toss</button>
+                </div>
+              ):(
+                <div>
+                  <button onClick={()=>setShowToss(true)} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05))",color:"var(--gold)",border:"2px solid rgba(255,215,0,0.4)",borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:700,fontSize:14,cursor:"pointer",letterSpacing:2}}>
+                    🪙 FLIP THE COIN
+                  </button>
+                  <div style={{textAlign:"center",color:"var(--muted)",fontSize:11,marginTop:6,fontFamily:"Barlow Condensed"}}>Tap to do the toss — or skip and start directly</div>
+                </div>
+              )}
+            </div>
+
+            {/* Privacy */}
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>MATCH VISIBILITY</div>
               <div style={{display:"flex",gap:8}}>
-                {[["bat","🏏 Bat First"],["bowl","🎳 Bowl First"]].map(([v,l])=>(<button key={v} onClick={()=>setTossChoice(v)} style={{flex:1,padding:"9px 0",background:tossChoice===v?"rgba(57,255,20,0.1)":"var(--bg3)",color:tossChoice===v?"var(--accent3)":"var(--muted)",border:`1px solid ${tossChoice===v?"var(--accent3)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{l}</button>))}
+                <button onClick={()=>setIsPublic(true)} style={{flex:1,padding:"12px 0",background:isPublic?"rgba(57,255,20,0.1)":"var(--bg3)",color:isPublic?"var(--accent3)":"var(--muted)",border:`2px solid ${isPublic?"var(--accent3)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>
+                  📡 PUBLIC<br/><span style={{fontSize:9,fontWeight:400}}>Others can watch live</span>
+                </button>
+                <button onClick={()=>setIsPublic(false)} style={{flex:1,padding:"12px 0",background:!isPublic?"rgba(255,61,90,0.1)":"var(--bg3)",color:!isPublic?"var(--danger)":"var(--muted)",border:`2px solid ${!isPublic?"var(--danger)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>
+                  🔒 PRIVATE<br/><span style={{fontSize:9,fontWeight:400}}>Only visible to you</span>
+                </button>
               </div>
-            </Card>
+            </div>
 
+            {/* Buttons */}
             <div style={{display:"flex",gap:8,marginBottom:10}}>
               <button onClick={()=>setStep(0)} style={{flex:1,padding:"13px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>← BACK</button>
-              <button onClick={()=>onStart({team1,team2,overs:format==="test"?9999:overs,format,ballType,players1:players1.filter(Boolean),players2:players2.filter(Boolean),captain1,captain2,wk1,wk2,tossWinner,tossChoice})}
+              <button onClick={()=>onStart({
+                  team1,team2,overs:format==="test"?9999:overs,format,ballType,
+                  players1:players1.filter(Boolean),players2:players2.filter(Boolean),
+                  captain1,captain2,wk1,wk2,
+                  tossWinner:tossResult?.tossWinner??0,
+                  tossChoice:tossResult?.tossChoice??"bat",
+                  tossMsg:tossResult?.tossMsg??"",
+                  battingFirst:tossResult?.battingFirst??0,
+                  isPublic
+                })}
                 style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer",animation:"pulse-border 2s infinite"}}>
                 START MATCH ▶
               </button>
             </div>
-            {/* Privacy toggle */}
-        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:14,marginBottom:12}}>
-          <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>MATCH VISIBILITY</div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setIsPublic(true)} style={{flex:1,padding:"12px 0",background:isPublic?"rgba(57,255,20,0.1)":"var(--bg3)",color:isPublic?"var(--accent3)":"var(--muted)",border:`2px solid ${isPublic?"var(--accent3)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>
-              📡 PUBLIC<br/><span style={{fontSize:9,fontWeight:400,letterSpacing:0}}>Others can watch live</span>
-            </button>
-            <button onClick={()=>setIsPublic(false)} style={{flex:1,padding:"12px 0",background:!isPublic?"rgba(255,61,90,0.1)":"var(--bg3)",color:!isPublic?"var(--danger)":"var(--muted)",border:`2px solid ${!isPublic?"var(--danger)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>
-              🔒 PRIVATE<br/><span style={{fontSize:9,fontWeight:400,letterSpacing:0}}>Only visible to you</span>
-            </button>
-          </div>
-        </div>
-
-        <button onClick={clearSaved} style={{width:"100%",padding:"8px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
+            <button onClick={clearSaved} style={{width:"100%",padding:"8px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
           </div>
         )}
       </div>
