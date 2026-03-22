@@ -1136,6 +1136,43 @@ function PitchMapScorer({ zones, onDetect, active }) {
   );
 }
 
+// ── CHANGE PLAYER DIALOG ─────────────────────────────────────────────────────
+function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) {
+  if (!players || players.length === 0) return null;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:16 }}>
+      <div style={{ background:"var(--card)", border:"1px solid var(--accent)", borderRadius:"var(--rad2)", padding:20, width:"100%", maxWidth:340, animation:"fadeInUp 0.25s ease" }}>
+        <div style={{ fontFamily:"Orbitron", color:"var(--accent)", fontSize:12, letterSpacing:2, marginBottom:14 }}>{title}</div>
+        <div style={{ maxHeight:320, overflowY:"auto" }}>
+          {players.map((p, i) => (
+            <div key={i} onClick={() => !p.dismissed && onSelect(i)}
+              style={{ padding:"11px 14px", marginBottom:6,
+                background: currentIdx===i ? "rgba(0,229,255,0.12)" : p.dismissed ? "rgba(255,61,90,0.04)" : "var(--bg3)",
+                border:`1px solid ${currentIdx===i?"var(--accent)":p.dismissed?"rgba(255,61,90,0.15)":"var(--border)"}`,
+                borderRadius:"var(--rad)", cursor:p.dismissed?"default":"pointer",
+                display:"flex", justifyContent:"space-between", alignItems:"center",
+                opacity: p.dismissed ? 0.4 : 1 }}>
+              <div>
+                <span style={{ fontFamily:"Barlow Condensed", fontSize:15, color:currentIdx===i?"var(--accent)":"var(--text)", fontWeight:currentIdx===i?700:400 }}>{p.name}</span>
+                {p.isCaptain&&<span style={{ marginLeft:6, fontSize:9, background:"rgba(255,215,0,0.2)", color:"var(--gold)", borderRadius:3, padding:"1px 5px", fontFamily:"Barlow Condensed", fontWeight:700 }}>C</span>}
+                {p.isWK&&<span style={{ marginLeft:4, fontSize:9, background:"rgba(0,229,255,0.15)", color:"var(--accent)", borderRadius:3, padding:"1px 5px", fontFamily:"Barlow Condensed", fontWeight:700 }}>WK</span>}
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:12, color:"var(--muted)", fontFamily:"Barlow Condensed" }}>{p.runs||0}({p.balls||0}b)</div>
+                {p.dismissed && <div style={{ fontSize:9, color:"var(--danger)", fontFamily:"Barlow Condensed" }}>OUT</div>}
+                {currentIdx===i && <div style={{ fontSize:9, color:"var(--accent)", fontFamily:"Barlow Condensed" }}>CURRENT</div>}
+                {/* bowler stats */}
+                {p.ballsBowled>0 && !p.dismissed && currentIdx!==i && <div style={{ fontSize:10, color:"var(--accent2)", fontFamily:"Barlow Condensed" }}>{p.wickets||0}w {p.runsConceded||0}r</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onCancel} style={{ width:"100%", marginTop:10, padding:"10px 0", background:"var(--bg3)", color:"var(--muted)", border:"1px solid var(--border)", borderRadius:"var(--rad)", fontFamily:"Barlow Condensed", fontWeight:700, fontSize:14, cursor:"pointer" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // ── SCORING SCREEN ────────────────────────────────────────────────────────────
 function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave,onChangePlayer}){
   if(!match||!match.teams||!match.teams[match.batting]) return null;
