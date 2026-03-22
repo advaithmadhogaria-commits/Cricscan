@@ -1476,13 +1476,17 @@ function WicketDialog({batters,fieldingTeam,onConfirm,onCancel}){
   const dismissals=["Bowled","Caught","LBW","Run Out","Stumped","Hit Wicket","Handled Ball","Obstructing Field","Timed Out","Hit Ball Twice"];
   const needsFielder=["Caught","Run Out","Stumped"].includes(dismissal);
   const ss={width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:10};
+  // Safety guard
+  const safeBatters=(batters||[]).filter(Boolean);
+  const safeFielders=(fieldingTeam||[]).filter(Boolean);
+  if(safeBatters.length===0) return null;
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:150,padding:16}}>
       <div style={{background:"var(--card)",border:"1px solid var(--danger)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:380,animation:"fadeInUp 0.25s ease"}}>
         <div style={{fontFamily:"Orbitron",color:"var(--danger)",fontSize:14,marginBottom:14,letterSpacing:2}}>🔴 WICKET!</div>
         <Label>OUT BATTER</Label>
         <select value={outBatter} onChange={e=>setOutBatter(Number(e.target.value))} style={ss}>
-          {batters.map((b,i)=><option key={i} value={i}>{b.name} — {b.runs}({b.balls})</option>)}
+          {safeBatters.map((b,i)=><option key={i} value={i}>{b?.name||"Batter "+(i+1)} — {b?.runs||0}({b?.balls||0})</option>)}
         </select>
         <Label>DISMISSAL TYPE</Label>
         <select value={dismissal} onChange={e=>setDismissal(e.target.value)} style={ss}>
@@ -1492,7 +1496,7 @@ function WicketDialog({batters,fieldingTeam,onConfirm,onCancel}){
           <Label>{dismissal==="Caught"?"CAUGHT BY":dismissal==="Run Out"?"RUN OUT BY":"STUMPED BY"}</Label>
           <select value={fielder} onChange={e=>setFielder(e.target.value)} style={ss}>
             <option value="">— Select fielder —</option>
-            {fieldingTeam.map((p,i)=><option key={i} value={p.name}>{p.name}</option>)}
+            {safeFielders.map((p,i)=><option key={i} value={p?.name||""}>{p?.name||"Fielder "+(i+1)}</option>)}
           </select>
         </>}
         <div style={{display:"flex",gap:8,marginTop:4}}>
