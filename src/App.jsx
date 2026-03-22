@@ -1071,8 +1071,22 @@ function PitchMapSetup({ onDone, onSkip }) {
 }
 
 // ── PITCH MAP SCORER (replaces CameraTracker) ─────────────────────────────────
+const DEFAULT_ZONES = [
+  { id: 0, label: "SIX", runs: 6, color: "#39ff14", x: 5, y: 5, w: 90, h: 12 },
+  { id: 1, label: "4 (OFF)", runs: 4, color: "#ffd700", x: 5, y: 18, w: 42, h: 14 },
+  { id: 2, label: "4 (LEG)", runs: 4, color: "#ffd700", x: 53, y: 18, w: 42, h: 14 },
+  { id: 3, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 5, y: 33, w: 42, h: 14 },
+  { id: 4, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 53, y: 33, w: 42, h: 14 },
+  { id: 5, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 15, y: 48, w: 32, h: 12 },
+  { id: 6, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 53, y: 48, w: 32, h: 12 },
+  { id: 7, label: "1 RUN", runs: 1, color: "#e8f4f8", x: 25, y: 61, w: 20, h: 12 },
+  { id: 8, label: "1 RUN", runs: 1, color: "#e8f4f8", x: 55, y: 61, w: 20, h: 12 },
+  { id: 9, label: "DOT", runs: 0, color: "#4a6278", x: 35, y: 74, w: 30, h: 14 },
+];
+
 function PitchMapScorer({ zones, onDetect, active }) {
   const [lastHit, setLastHit] = useState(null);
+  const activeZones = (zones && zones.length > 0) ? zones : DEFAULT_ZONES;
 
   const handleZoneTap = (zone) => {
     setLastHit(zone.id);
@@ -1099,7 +1113,7 @@ function PitchMapScorer({ zones, onDetect, active }) {
         <div style={{ position: "absolute", left: "15%", top: "20%", width: "70%", height: "60%", borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.2)" }} />
 
         {/* Tappable zones */}
-        {(zones || []).map(z => (
+        {activeZones.map(z => (
           <div key={z.id} onClick={() => handleZoneTap(z)}
             style={{ position: "absolute", left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%`,
               background: lastHit === z.id ? `${z.color}55` : `${z.color}18`,
@@ -1895,8 +1909,6 @@ export default function App(){
       currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[],
       matchId:"match_"+Date.now(),isPublic};
     setMatch(newMatch);
-    // Show batter/bowler selector at start
-    setShowBatterChange(true);
     setScreen("camera");
   },[]);
 
