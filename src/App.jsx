@@ -1175,7 +1175,7 @@ function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) 
 
 // ── SCORING SCREEN ────────────────────────────────────────────────────────────
 function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave,onChangePlayer}){
-  if(!match||!match.teams||!match.teams[match.batting]) return null;
+  if(!match||!match.teams||!match.teams[match.batting]||!match.striker||!match.nonStriker) return null;
   const bt=match.teams[match.batting];
   const isChasing=match.inning>0&&match.format!=="test";
   const target=isChasing?match.teams[0].score+1:null;
@@ -1279,19 +1279,21 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
 
         {/* Striker / Non-striker / Bowler — tap batters to declare */}
         <div style={{display:"flex",gap:6}}>
-          {/* STRIKER — tap name to declare, tap pencil to change */}
+          {/* STRIKER — tap body to declare, pencil to change */}
           <div style={{flex:1.2,background:"rgba(0,229,255,0.06)",border:"1.5px solid var(--accent)",borderRadius:"var(--rad)",padding:"6px 8px",position:"relative"}}>
             <div style={{fontSize:8,color:"var(--accent)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
               <span>⚡ STRIKER</span>
               <span onClick={e=>{e.stopPropagation();setChangeDialog("striker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(0,229,255,0.15)",borderRadius:3}}>✎</span>
             </div>
-            <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.striker?.name||"—"}</div>
-            <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
-              <span style={{color:"var(--accent)",fontWeight:700}}>{match.striker?.runs||0}</span>
-              <span style={{color:"var(--muted)"}}>({match.striker?.balls||0}b)</span>
-              <span style={{color:"var(--muted)",fontSize:10}}>SR {match.striker?.balls>0?((match.striker.runs/match.striker.balls)*100).toFixed(0):0}</span>
+            <div onClick={()=>setDeclareDialog("striker")} style={{cursor:"pointer"}}>
+              <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.striker?.name||"—"}</div>
+              <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
+                <span style={{color:"var(--accent)",fontWeight:700}}>{match.striker?.runs||0}</span>
+                <span style={{color:"var(--muted)"}}>({match.striker?.balls||0}b)</span>
+                <span style={{color:"var(--muted)",fontSize:10}}>SR {match.striker?.balls>0?((match.striker.runs/match.striker.balls)*100).toFixed(0):0}</span>
+              </div>
+              <div style={{fontSize:8,color:"var(--accent)",opacity:0.5,fontFamily:"Barlow Condensed",marginTop:1}}>TAP TO DECLARE</div>
             </div>
-            <div style={{position:"absolute",top:4,right:5,fontSize:8,color:"var(--accent)",opacity:0.5,fontFamily:"Barlow Condensed"}}>TAP</div>
           </div>
 
           {/* NON-STRIKER */}
@@ -1306,6 +1308,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
                 <span style={{color:"var(--muted)"}}>{match.nonStriker?.runs||0}</span>
                 <span style={{color:"var(--muted)"}}>({match.nonStriker?.balls||0}b)</span>
               </div>
+              <div style={{fontSize:8,color:"var(--muted)",opacity:0.5,fontFamily:"Barlow Condensed",marginTop:1}}>TAP TO DECLARE</div>
             </div>
           </div>
 
@@ -2193,10 +2196,11 @@ export default function App(){
             <NavBtn onClick={()=>setScreen("scorecard")} label="SCORECARD"/>
             <NavBtn onClick={()=>setScreen("history")} label="HISTORY"/>
             <NavBtn onClick={()=>setScreen("rules")} label="RULES"/>
+            <button onClick={()=>setShowLiveBrowser(true)} style={{flex:1,padding:"10px 0",background:"rgba(57,255,20,0.06)",color:"var(--accent3)",border:"none",borderBottom:"2px solid var(--accent3)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:11,cursor:"pointer"}}>📡</button>
             {user&&<div style={{padding:"0 8px",fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",borderLeft:"1px solid var(--border)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:80}}>{user.displayName||user.email?.split("@")[0]}</div>}
           </div>
           <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)} onChangePlayer={handleChangePlayer}/>
-          {showWicket&&<WicketDialog batters={[match.striker,match.nonStriker]} fieldingTeam={match.teams[match.bowling].players} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
+          {showWicket&&match?.striker&&match?.nonStriker&&<WicketDialog batters={[match.striker,match.nonStriker].filter(Boolean)} fieldingTeam={(match.teams[match.bowling]?.players||[]).filter(Boolean)} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
           {showBowlerSelect&&<BowlerSelectDialog players={match.teams[match.bowling].players} currentBowler={match.currentBowler?.name} onSelect={confirmBowler}/>}
           {showStrikeSwap&&<StrikeSwapDialog striker={match.striker} nonStriker={match.nonStriker} onConfirm={()=>{doStrikeSwap();setShowStrikeSwap(false);}} onCancel={()=>{cancelStrikeSwap();setShowStrikeSwap(false);}}/>}
           {stumpsType&&<StumpsDialog type={stumpsType} onResume={()=>setStumpsType(null)} onEnd={()=>{setStumpsType(null);handleEndInnings();}}/>}
