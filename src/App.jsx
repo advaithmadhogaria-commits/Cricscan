@@ -1235,7 +1235,7 @@ function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) 
 }
 
 // ── SCORING SCREEN ────────────────────────────────────────────────────────────
-function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave,onChangePlayer}){
+function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave,onChangePlayer,onOpenDeclare}){
   if(!match||!match.teams||!match.teams[match.batting]||!match.striker||!match.nonStriker) return null;
   const bt=match.teams[match.batting];
   const isChasing=match.inning>0&&match.format!=="test";
@@ -1348,7 +1348,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
               <span>⚡ STRIKER</span>
               <span onClick={e=>{e.stopPropagation();setChangeDialog("striker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(0,229,255,0.15)",borderRadius:3}}>✎</span>
             </div>
-            <div onClick={()=>setDeclareDialog("striker")} style={{cursor:"pointer"}}>
+            <div onClick={()=>onOpenDeclare("striker")} style={{cursor:"pointer"}}>
               <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.striker?.name||"—"}</div>
               <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
                 <span style={{color:"var(--accent)",fontWeight:700}}>{match.striker?.runs||0}</span>
@@ -1365,7 +1365,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
               <span>NON-STRIKE</span>
               <span onClick={e=>{e.stopPropagation();setChangeDialog("nonStriker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(255,255,255,0.08)",borderRadius:3,color:"var(--muted)"}}>✎</span>
             </div>
-            <div onClick={()=>setDeclareDialog("nonStriker")} style={{cursor:"pointer"}}>
+            <div onClick={()=>onOpenDeclare("nonStriker")} style={{cursor:"pointer"}}>
               <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.nonStriker?.name||"—"}</div>
               <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
                 <span style={{color:"var(--muted)"}}>{match.nonStriker?.runs||0}</span>
@@ -1387,23 +1387,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         </div>
       </div>
 
-      {/* ════ DECLARE RUNS DIALOG ════ */}
-      {declareDialog&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}}>
-          <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:340,animation:"fadeInUp 0.25s ease"}}>
-            <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:12,letterSpacing:2,marginBottom:4}}>DECLARE RUNS</div>
-            <div style={{color:"var(--muted)",fontSize:13,marginBottom:14}}><b style={{color:"var(--text)"}}>{declareDialog==="striker"?match.striker?.name:match.nonStriker?.name}</b> — how many runs this ball?</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:12}}>
-              {[1,2,3,4,5,6,7,8].map(r=>(<button key={r} onClick={()=>setDeclareRuns(String(r))} style={{padding:"11px 0",background:declareRuns===String(r)?"var(--accent)":"var(--bg3)",color:declareRuns===String(r)?"#000":"var(--text)",border:`1px solid ${declareRuns===String(r)?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:16,cursor:"pointer"}}>{r}</button>))}
-            </div>
-            <input type="number" min="0" value={declareRuns} onChange={e=>setDeclareRuns(e.target.value)} placeholder="Custom number..." style={{width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:17,marginBottom:12}}/>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>{setDeclareDialog(null);setDeclareRuns("");}} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
-              <button onClick={handleDeclare} disabled={!declareRuns} style={{flex:2,padding:10,background:declareRuns?"var(--accent)":"var(--bg2)",color:declareRuns?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:declareRuns?"pointer":"default",letterSpacing:1}}>CONFIRM ✓</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Declare dialog handled at app level via onDeclare prop */}
 
       {/* ════ CONTROLS ════ */}
       <div style={{flex:1,overflowY:"auto",padding:"10px 14px"}}>
@@ -1960,6 +1944,8 @@ export default function App(){
   const [stumpsType,setStumpsType]=useState(null);
   const [showLeaveConfirm,setShowLeaveConfirm]=useState(false);
   const [showShare,setShowShare]=useState(false);
+  const [declareDialog,setDeclareDialog]=useState(null);
+  const [declareRuns,setDeclareRuns]=useState("");
   const [showLiveViewer,setShowLiveViewer]=useState(false);
   const [liveViewId,setLiveViewId]=useState("");
   const [showLiveBrowser,setShowLiveBrowser]=useState(false);
@@ -2263,7 +2249,39 @@ export default function App(){
             <button onClick={()=>setShowLiveBrowser(true)} style={{flex:1,padding:"10px 0",background:"rgba(57,255,20,0.06)",color:"var(--accent3)",border:"none",borderBottom:"2px solid var(--accent3)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:11,cursor:"pointer"}}>📡</button>
             {user&&<div style={{padding:"0 8px",fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",borderLeft:"1px solid var(--border)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:80}}>{user.displayName||user.email?.split("@")[0]}</div>}
           </div>
-          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)} onChangePlayer={handleChangePlayer}/>
+          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)} onChangePlayer={handleChangePlayer} onOpenDeclare={setDeclareDialog}/>
+          {/* ── DECLARE RUNS DIALOG (app level - never unmounts with screen) ── */}
+          {declareDialog&&(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.93)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:600,padding:16}}>
+              <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:22,width:"100%",maxWidth:340}}>
+                <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2,marginBottom:6}}>DECLARE RUNS</div>
+                <div style={{color:"var(--muted)",fontSize:13,marginBottom:14}}>
+                  <b style={{color:"var(--text)"}}>{declareDialog==="striker"?match?.striker?.name:match?.nonStriker?.name}</b> — runs scored this ball?
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+                  {[0,1,2,3,4,5,6,7,8].map(r=>(
+                    <button key={r} onClick={()=>setDeclareRuns(String(r))}
+                      style={{padding:"12px 0",background:declareRuns===String(r)?"var(--accent)":"var(--bg3)",color:declareRuns===String(r)?"#000":"var(--text)",border:`1px solid ${declareRuns===String(r)?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:r===0?14:16,cursor:"pointer"}}>
+                      {r===0?"•":r}
+                    </button>
+                  ))}
+                </div>
+                <input type="number" min="0" max="36" value={declareRuns} onChange={e=>setDeclareRuns(e.target.value)} placeholder="Other..."
+                  style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:17,marginBottom:14}}/>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={()=>{setDeclareDialog(null);setDeclareRuns("");}}
+                    style={{flex:1,padding:"12px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
+                  <button onClick={()=>{
+                    const r=parseInt(declareRuns);
+                    if(isNaN(r)||r<0)return;
+                    setDeclareDialog(null);
+                    setDeclareRuns("");
+                    handleBall(r,"normal");
+                  }} disabled={declareRuns===""} style={{flex:2,padding:"12px 0",background:declareRuns!=""?"var(--accent)":"var(--bg2)",color:declareRuns!=""?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:13,cursor:declareRuns!=""?"pointer":"default",letterSpacing:1}}>CONFIRM ✓</button>
+                </div>
+              </div>
+            </div>
+          )}
           {showWicket&&match?.striker&&match?.nonStriker&&<WicketDialog batters={[match.striker,match.nonStriker].filter(Boolean)} fieldingTeam={(match.teams[match.bowling]?.players||[]).filter(Boolean)} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
           {showBowlerSelect&&<BowlerSelectDialog players={match.teams[match.bowling].players} currentBowler={match.currentBowler?.name} onSelect={confirmBowler}/>}
           {showStrikeSwap&&<StrikeSwapDialog striker={match.striker} nonStriker={match.nonStriker} onConfirm={()=>{doStrikeSwap();setShowStrikeSwap(false);}} onCancel={()=>{cancelStrikeSwap();setShowStrikeSwap(false);}}/>}
