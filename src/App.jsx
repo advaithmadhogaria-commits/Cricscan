@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { auth, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, getLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase";
 
 const FontLink = () => (
   <style>{`
@@ -66,97 +65,8 @@ function AwardCard({icon,title,name,stat,color}){
   );
 }
 
-// ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
-function LoginScreen({onLogin}){
-  const [mode,setMode]=useState("login"); // login | register
-  const [email,setEmail]=useState("");
-  const [pass,setPass]=useState("");
-  const [confirmPass,setConfirmPass]=useState("");
-  const [error,setError]=useState("");
-  const [loading,setLoading]=useState(false);
-
-  const handleEmail=async()=>{
-    setError(""); setLoading(true);
-    try{
-      if(mode==="register"){
-        if(pass!==confirmPass){setError("Passwords don't match");setLoading(false);return;}
-        if(pass.length<6){setError("Password must be at least 6 characters");setLoading(false);return;}
-        await registerWithEmail(email,pass);
-      } else {
-        await signInWithEmail(email,pass);
-      }
-      onLogin();
-    } catch(e){
-      const msg=e.code==="auth/user-not-found"?"No account found with this email":
-                e.code==="auth/wrong-password"?"Incorrect password":
-                e.code==="auth/email-already-in-use"?"Email already registered":
-                e.code==="auth/invalid-email"?"Invalid email address":
-                e.message||"Something went wrong";
-      setError(msg);
-    }
-    setLoading(false);
-  };
-
-  const handleGoogle=async()=>{
-    setError(""); setLoading(true);
-    try{ await signInWithGoogle(); onLogin(); }
-    catch(e){ setError("Google sign-in failed. Try again."); }
-    setLoading(false);
-  };
-
-  return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at center,#0d1f30 0%,#080c10 70%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px"}}>
-      <div style={{width:"100%",maxWidth:380,animation:"fadeInUp 0.5s ease"}}>
-        {/* Logo */}
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontSize:48,marginBottom:8}}>🏏</div>
-          <div style={{fontFamily:"Orbitron",fontSize:22,color:"var(--accent)",letterSpacing:3}} className="glow">CRICSCAN</div>
-          <div style={{color:"var(--muted)",fontSize:12,marginTop:4,letterSpacing:2}}>{mode==="register"?"CREATE ACCOUNT":"SIGN IN TO CONTINUE"}</div>
-        </div>
-
-        {/* Google button */}
-        <button onClick={handleGoogle} disabled={loading} style={{width:"100%",padding:"13px 0",background:"#fff",color:"#333",border:"none",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:15,cursor:loading?"not-allowed":"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10,opacity:loading?0.7:1}}>
-          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          Continue with Google
-        </button>
-
-        {/* Divider */}
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-          <div style={{flex:1,height:1,background:"var(--border)"}}/>
-          <span style={{color:"var(--muted)",fontSize:12,fontFamily:"Barlow Condensed"}}>OR</span>
-          <div style={{flex:1,height:1,background:"var(--border)"}}/>
-        </div>
-
-        {/* Email/Pass form */}
-        <div style={{marginBottom:10}}>
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email address"
-            style={{width:"100%",padding:"12px 14px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:8}} />
-          <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password"
-            style={{width:"100%",padding:"12px 14px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:mode==="register"?8:0}} />
-          {mode==="register"&&<input type="password" value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} placeholder="Confirm Password"
-            style={{width:"100%",padding:"12px 14px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}} />}
-        </div>
-
-        {error&&<div style={{color:"var(--danger)",fontSize:13,fontFamily:"Barlow Condensed",marginBottom:10,padding:"8px 12px",background:"rgba(255,61,90,0.1)",borderRadius:"var(--rad)",border:"1px solid rgba(255,61,90,0.3)"}}>{error}</div>}
-
-        <button onClick={handleEmail} disabled={loading||!email||!pass} style={{width:"100%",padding:"13px 0",background:email&&pass?"linear-gradient(135deg,var(--accent),#0099bb)":"var(--bg3)",color:email&&pass?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,cursor:email&&pass?"pointer":"default",marginBottom:16,opacity:loading?0.7:1}}>
-          {loading?"LOADING...":(mode==="register"?"CREATE ACCOUNT →":"SIGN IN →")}
-        </button>
-
-        <div style={{textAlign:"center",color:"var(--muted)",fontSize:13,fontFamily:"Barlow Condensed"}}>
-          {mode==="login"?"Don't have an account? ":"Already have an account? "}
-          <span onClick={()=>{setMode(mode==="login"?"register":"login");setError("");}} style={{color:"var(--accent)",cursor:"pointer",fontWeight:700}}>
-            {mode==="login"?"Register":"Sign In"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
 // ── SPLASH SCREEN ────────────────────────────────────────────────────────────
-function SplashScreen({onStart,onSignOut,user}){
+function SplashScreen({onStart}){
   const [visible,setVisible]=useState(false);
   useEffect(()=>{setTimeout(()=>setVisible(true),100);},[]);
   return (
@@ -192,10 +102,6 @@ function SplashScreen({onStart,onSignOut,user}){
 
         {/* Version tag */}
         <div style={{marginTop:32,fontSize:11,color:"var(--border)",fontFamily:"Barlow Condensed",letterSpacing:2}}>v2.0 · CRICSCAN</div>
-        {user&&<div style={{marginTop:12,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-          <div style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>{user.email}</div>
-          <button onClick={onSignOut} style={{fontSize:11,color:"var(--danger)",background:"none",border:"1px solid rgba(255,61,90,0.3)",borderRadius:20,padding:"4px 14px",fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",letterSpacing:1}}>SIGN OUT</button>
-        </div>}
       </div>
     </div>
   );
@@ -445,83 +351,8 @@ function CameraTracker({zones,onDetect,active}){
   );
 }
 
-// ── BATTER CHANGE DIALOG ─────────────────────────────────────────────────────
-function BatterChangeDialog({title,players,currentStrikerIdx,currentNonStrikerIdx,onConfirm,onCancel,showBowlerChange,bowlerPlayers,currentBowlerName}){
-  const [strikerIdx,setStrikerIdx]=useState(currentStrikerIdx);
-  const [nonStrikerIdx,setNonStrikerIdx]=useState(currentNonStrikerIdx);
-  const [newBowler,setNewBowler]=useState(currentBowlerName||"");
-  const available=players.filter((_,i)=>!players[i]?.dismissed);
-
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
-      <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:380,animation:"fadeInUp 0.25s ease"}}>
-        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:12,letterSpacing:2,marginBottom:14}}>{title}</div>
-
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:11,color:"var(--accent)",letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:5}}>⚡ STRIKER (ON STRIKE)</div>
-          <select value={strikerIdx} onChange={e=>setStrikerIdx(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--accent)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}>
-            {players.map((p,i)=>(!p.dismissed||i===currentStrikerIdx)&&<option key={i} value={i}>{p.name}{p.isCaptain?" (C)":""}{p.isWK?" (WK)":""}</option>)}
-          </select>
-        </div>
-
-        <div style={{marginBottom:showBowlerChange?12:16}}>
-          <div style={{fontSize:11,color:"var(--muted)",letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:5}}>NON-STRIKER</div>
-          <select value={nonStrikerIdx} onChange={e=>setNonStrikerIdx(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}>
-            {players.map((p,i)=>(!p.dismissed||i===currentNonStrikerIdx)&&<option key={i} value={i}>{p.name}{p.isCaptain?" (C)":""}{p.isWK?" (WK)":""}</option>)}
-          </select>
-        </div>
-
-        {showBowlerChange&&(
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:11,color:"var(--accent2)",letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:5}}>🎳 BOWLER</div>
-            <select value={newBowler} onChange={e=>setNewBowler(e.target.value)} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--accent2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}>
-              {(bowlerPlayers||[]).map((p,i)=><option key={i} value={p.name}>{p.name}{p.isCaptain?" (C)":""}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={onCancel} style={{flex:1,padding:11,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
-          <button onClick={()=>onConfirm({strikerIdx,nonStrikerIdx,newBowler})} disabled={strikerIdx===nonStrikerIdx} style={{flex:2,padding:11,background:strikerIdx!==nonStrikerIdx?"var(--accent)":"var(--bg3)",color:strikerIdx!==nonStrikerIdx?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:strikerIdx!==nonStrikerIdx?"pointer":"default",letterSpacing:1}}>CONFIRM ✓</button>
-        </div>
-        {strikerIdx===nonStrikerIdx&&<div style={{color:"var(--danger)",fontSize:11,textAlign:"center",marginTop:6,fontFamily:"Barlow Condensed"}}>Striker and non-striker must be different players</div>}
-      </div>
-    </div>
-  );
-}
-
-
-// ── CHANGE PLAYER DIALOG ──────────────────────────────────────────────────────
-function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) {
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad2)", padding: 20, width: "100%", maxWidth: 340, animation: "fadeInUp 0.25s ease" }}>
-        <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 12, letterSpacing: 2, marginBottom: 14 }}>{title}</div>
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
-          {players.map((p, i) => (
-            <div key={i} onClick={() => onSelect(i)}
-              style={{ padding: "11px 14px", marginBottom: 6, background: currentIdx === i ? "rgba(0,229,255,0.12)" : p.dismissed ? "rgba(255,61,90,0.05)" : "var(--bg3)", border: `1px solid ${currentIdx === i ? "var(--accent)" : p.dismissed ? "rgba(255,61,90,0.2)" : "var(--border)"}`, borderRadius: "var(--rad)", cursor: p.dismissed ? "default" : "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: p.dismissed ? 0.45 : 1 }}>
-              <div>
-                <span style={{ fontFamily: "Barlow Condensed", fontSize: 15, color: currentIdx === i ? "var(--accent)" : "var(--text)", fontWeight: currentIdx === i ? 700 : 400 }}>{p.name}</span>
-                {p.isCaptain && <span style={{ marginLeft: 6, fontSize: 9, background: "rgba(255,215,0,0.2)", color: "var(--gold)", borderRadius: 3, padding: "1px 5px", fontFamily: "Barlow Condensed", fontWeight: 700 }}>C</span>}
-                {p.isWK && <span style={{ marginLeft: 4, fontSize: 9, background: "rgba(0,229,255,0.15)", color: "var(--accent)", borderRadius: 3, padding: "1px 5px", fontFamily: "Barlow Condensed", fontWeight: 700 }}>WK</span>}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: 12, color: "var(--muted)", fontFamily: "Barlow Condensed" }}>{p.runs || 0}({p.balls || 0})</span>
-                {p.dismissed && <div style={{ fontSize: 9, color: "var(--danger)", fontFamily: "Barlow Condensed" }}>OUT</div>}
-                {currentIdx === i && <div style={{ fontSize: 9, color: "var(--accent)", fontFamily: "Barlow Condensed" }}>CURRENT</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-        <button onClick={onCancel} style={{ width: "100%", marginTop: 10, padding: "10px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-      </div>
-    </div>
-  );
-}
-
 // ── SCORING SCREEN ────────────────────────────────────────────────────────────
-function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave,onChangePlayer}){
+function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onManualStrikeSwap,onLeave}){
   if(!match||!match.teams||!match.teams[match.batting]) return null;
   const bt=match.teams[match.batting];
   const isChasing=match.inning>0&&match.format!=="test";
@@ -537,9 +368,6 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
   const [declareRuns,setDeclareRuns]=useState("");
   const [showMenu,setShowMenu]=useState(false);
   const [showComm,setShowComm]=useState(false);
-  const [changeDialog,setChangeDialog]=useState(null); // null | 'striker' | 'nonStriker' | 'bowler'
-  const bt_players=bt.players||[];
-  const bw_players=match.teams[match.bowling]?.players||[];
   const currentOver=bt.overs[bt.overs.length-1]||[];
 
   const notify=(msg,color="var(--accent)")=>{setNotif({msg,color});setTimeout(()=>setNotif(null),1800);};
@@ -622,12 +450,9 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
 
         {/* Striker / Non-striker / Bowler — tap batters to declare */}
         <div style={{display:"flex",gap:6}}>
-          {/* STRIKER — tap name to declare, tap pencil to change */}
-          <div style={{flex:1.2,background:"rgba(0,229,255,0.06)",border:"1.5px solid var(--accent)",borderRadius:"var(--rad)",padding:"6px 8px",position:"relative"}}>
-            <div style={{fontSize:8,color:"var(--accent)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
-              <span>⚡ STRIKER</span>
-              <span onClick={e=>{e.stopPropagation();setChangeDialog("striker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(0,229,255,0.15)",borderRadius:3}}>✎</span>
-            </div>
+          {/* STRIKER — glowing, tappable */}
+          <div onClick={()=>setDeclareDialog("striker")} style={{flex:1.2,background:"rgba(0,229,255,0.06)",border:"1.5px solid var(--accent)",borderRadius:"var(--rad)",padding:"6px 8px",cursor:"pointer",position:"relative"}}>
+            <div style={{fontSize:8,color:"var(--accent)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed"}}>⚡ STRIKER</div>
             <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.striker?.name||"—"}</div>
             <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
               <span style={{color:"var(--accent)",fontWeight:700}}>{match.striker?.runs||0}</span>
@@ -637,27 +462,20 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
             <div style={{position:"absolute",top:4,right:5,fontSize:8,color:"var(--accent)",opacity:0.5,fontFamily:"Barlow Condensed"}}>TAP</div>
           </div>
 
-          {/* NON-STRIKER */}
-          <div style={{flex:1,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--rad)",padding:"6px 8px",position:"relative"}}>
-            <div style={{fontSize:8,color:"var(--muted)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
-              <span>NON-STRIKE</span>
-              <span onClick={e=>{e.stopPropagation();setChangeDialog("nonStriker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(255,255,255,0.08)",borderRadius:3,color:"var(--muted)"}}>✎</span>
+          {/* NON-STRIKER — tappable */}
+          <div onClick={()=>setDeclareDialog("nonStriker")} style={{flex:1,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--rad)",padding:"6px 8px",cursor:"pointer",position:"relative"}}>
+            <div style={{fontSize:8,color:"var(--muted)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed"}}>NON-STRIKE</div>
+            <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.nonStriker?.name||"—"}</div>
+            <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
+              <span style={{color:"var(--muted)"}}>{match.nonStriker?.runs||0}</span>
+              <span style={{color:"var(--muted)"}}>({match.nonStriker?.balls||0}b)</span>
             </div>
-            <div onClick={()=>setDeclareDialog("nonStriker")} style={{cursor:"pointer"}}>
-              <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.nonStriker?.name||"—"}</div>
-              <div style={{fontSize:11,display:"flex",gap:6,marginTop:1}}>
-                <span style={{color:"var(--muted)"}}>{match.nonStriker?.runs||0}</span>
-                <span style={{color:"var(--muted)"}}>({match.nonStriker?.balls||0}b)</span>
-              </div>
-            </div>
+            <div style={{position:"absolute",top:4,right:5,fontSize:8,color:"var(--muted)",opacity:0.5,fontFamily:"Barlow Condensed"}}>TAP</div>
           </div>
 
           {/* BOWLER */}
           <div style={{flex:1,background:"var(--bg3)",border:"1px solid rgba(255,107,53,0.25)",borderRadius:"var(--rad)",padding:"6px 8px"}}>
-            <div style={{fontSize:8,color:"var(--accent2)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
-              <span>BOWLING</span>
-              <span onClick={e=>{e.stopPropagation();setChangeDialog("bowler");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(255,107,53,0.15)",borderRadius:3,color:"var(--accent2)"}}>✎</span>
-            </div>
+            <div style={{fontSize:8,color:"var(--accent2)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed"}}>BOWLING</div>
             <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.currentBowler?.name||"—"}</div>
             <div style={{fontSize:11,color:"var(--muted)",marginTop:1}}>{match.currentBowler?.wickets||0}/{match.currentBowler?.runsConceded||0} <span style={{fontSize:9}}>{overStr(match.currentBowler?.ballsBowled||0)}ov</span></div>
           </div>
@@ -768,35 +586,6 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         </div>
 
       </div>
-
-      {/* ── CHANGE PLAYER DIALOGS ── */}
-      {changeDialog==="striker"&&(
-        <ChangePlayerDialog
-          title="CHANGE STRIKER"
-          players={bt_players}
-          currentIdx={match.strikerIdx}
-          onSelect={idx=>{onChangePlayer("striker",idx);setChangeDialog(null);}}
-          onCancel={()=>setChangeDialog(null)}
-        />
-      )}
-      {changeDialog==="nonStriker"&&(
-        <ChangePlayerDialog
-          title="CHANGE NON-STRIKER"
-          players={bt_players}
-          currentIdx={match.nonStrikerIdx}
-          onSelect={idx=>{onChangePlayer("nonStriker",idx);setChangeDialog(null);}}
-          onCancel={()=>setChangeDialog(null)}
-        />
-      )}
-      {changeDialog==="bowler"&&(
-        <ChangePlayerDialog
-          title="CHANGE BOWLER"
-          players={bw_players}
-          currentIdx={match.currentBowlerIdx}
-          onSelect={idx=>{onChangePlayer("bowler",idx);setChangeDialog(null);}}
-          onCancel={()=>setChangeDialog(null)}
-        />
-      )}
     </div>
   );
 }
@@ -1141,29 +930,10 @@ function ResultScreen({match,onNewMatch}){
 }
 
 // ── HISTORY SCREEN ────────────────────────────────────────────────────────────
-function HistoryScreen({onBack,onView,user}){
+function HistoryScreen({onBack,onView}){
   const [records,setRecords]=useState([]);
-  const [loading,setLoading]=useState(true);
-  useEffect(()=>{
-    const load=async()=>{
-      setLoading(true);
-      try{
-        if(user){
-          const matches=await getMatchHistory(user.uid);
-          setRecords(matches);
-        } else {
-          setRecords(JSON.parse(localStorage.getItem("cricscan_history")||"[]").reverse());
-        }
-      }catch{setRecords([]);}
-      setLoading(false);
-    };
-    load();
-  },[user]);
-  const del=async id=>{
-    if(user){ await deleteMatch(user.uid,id); }
-    else { const u=JSON.parse(localStorage.getItem("cricscan_history")||"[]").filter(r=>r.id!==id); localStorage.setItem("cricscan_history",JSON.stringify(u)); }
-    setRecords(r=>r.filter(x=>x.id!==id));
-  };
+  useEffect(()=>{try{setRecords(JSON.parse(localStorage.getItem("cricscan_history")||"[]").reverse());}catch{setRecords([]);}  },[]);
+  const del=id=>{const u=records.filter(r=>r.id!==id);setRecords(u);localStorage.setItem("cricscan_history",JSON.stringify([...u].reverse()));};
   return (
     <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
       <div style={{background:"linear-gradient(135deg,#0a1520,#0d1f2e)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
@@ -1190,7 +960,7 @@ function HistoryScreen({onBack,onView,user}){
                 </div>
                 <div style={{color:"var(--accent2)",fontSize:13,marginTop:5,fontFamily:"Barlow Condensed",fontWeight:700}}>{r.result}</div>
               </div>
-              <button onClick={()=>del(r.id,r.firestoreId)} style={{background:"none",border:"none",color:"var(--muted)",fontSize:18,cursor:"pointer",padding:"0 0 0 8px",flexShrink:0}}>🗑</button>
+              <button onClick={()=>del(r.id)} style={{background:"none",border:"none",color:"var(--muted)",fontSize:18,cursor:"pointer",padding:"0 0 0 8px",flexShrink:0}}>🗑</button>
             </div>
             <div style={{display:"flex",gap:8,marginTop:10}}>
               {r.teams.map((t,i)=>(<div key={i} style={{flex:1,background:"var(--bg3)",borderRadius:"var(--rad)",padding:"8px 10px"}}>
@@ -1209,9 +979,7 @@ function HistoryScreen({onBack,onView,user}){
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App(){
-  const [screen,setScreen]=useState("login");
-  const [user,setUser]=useState(null);
-  const [authLoading,setAuthLoading]=useState(true);
+  const [screen,setScreen]=useState("splash");
   const [match,setMatch]=useState(null);
   const [showWicket,setShowWicket]=useState(false);
   const [showBowlerSelect,setShowBowlerSelect]=useState(false);
@@ -1219,54 +987,45 @@ export default function App(){
   const [historyMatch,setHistoryMatch]=useState(null);
   const [stumpsType,setStumpsType]=useState(null);
   const [showLeaveConfirm,setShowLeaveConfirm]=useState(false);
-  const [showBatterChange,setShowBatterChange]=useState(false);
 
-  // Auth state listener
+  // Restore live match on reload
   useEffect(()=>{
-    const unsub = onAuthChange(async u=>{
-      setUser(u);
-      setAuthLoading(false);
-      if(u){
-        // Try restore live match from Firebase
-        try{
-          const live = await getLiveMatch(u.uid);
-          if(live&&!live.ended&&live.teams&&live.teams.length===2&&live.striker&&live.currentBowler){
-            setMatch(live); setScreen("scoring"); return;
-          }
-        }catch(e){}
-        setScreen("splash");
-      } else {
-        setScreen("login");
+    try{
+      const s=localStorage.getItem("cricscan_live");
+      if(s){
+        const p=JSON.parse(s);
+        // Validate it has required fields before restoring
+        if(p&&!p.ended&&p.teams&&p.teams.length===2&&p.striker&&p.currentBowler){
+          setMatch(p);setScreen("scoring");return;
+        }
       }
-    });
-    return ()=>unsub();
+      // Clear any corrupted data
+      localStorage.removeItem("cricscan_live");
+    }catch(e){
+      localStorage.removeItem("cricscan_live");
+    }
+    setScreen("splash");
   },[]);
 
-  // Auto-save live match to Firebase on every change
-  useEffect(()=>{
-    if(match&&!match.ended&&user){
-      saveLiveMatch(user.uid, match);
-    }
-  },[match, user]);
+  // Auto-save every change
+  useEffect(()=>{if(match&&!match.ended){try{localStorage.setItem("cricscan_live",JSON.stringify(match));}catch{}}},[match]);
 
   const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,tossWinner,tossChoice})=>{
     const t0=mkTeam(team1,players1);const t1=mkTeam(team2,players2);
+    // Mark captain and wicketkeeper
     if(t0.players[captain1])t0.players[captain1].isCaptain=true;
     if(t0.players[wk1])t0.players[wk1].isWK=true;
     if(t1.players[captain2])t1.players[captain2].isCaptain=true;
     if(t1.players[wk2])t1.players[wk2].isWK=true;
-    const battingFirst=tossChoice==="bat"?tossWinner:1-tossWinner;
-    const bowlingFirst=1-battingFirst;
+    // Determine batting first based on toss
+    const battingFirst = tossChoice==="bat" ? tossWinner : 1-tossWinner;
+    const bowlingFirst = 1-battingFirst;
     const tossMsg=`${[team1,team2][tossWinner]} won the toss and elected to ${tossChoice} first`;
-    const newMatch={teams:[t0,t1],overs,format,ballType,
+    setMatch({teams:[t0,t1],overs,format,ballType,
       batting:battingFirst,bowling:bowlingFirst,inning:0,
       toss:tossMsg,
       striker:{...t0.players[0]},nonStriker:{...t0.players[1]},strikerIdx:0,nonStrikerIdx:1,nextBatterIdx:2,
-      currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[],
-      matchId:"match_"+Date.now()};
-    setMatch(newMatch);
-    // Show batter/bowler selector at start
-    setShowBatterChange(true);
+      currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[]});
     setScreen("camera");
   },[]);
 
@@ -1322,7 +1081,6 @@ export default function App(){
       const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
       if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
       if(bt.wickets>=10||bt.balls>=nm.overs*6)nm.needInningsEnd=true;
-      else nm.needBatterChange=true; // show batter change after wicket
       return nm;
     });
   };
@@ -1407,48 +1165,9 @@ export default function App(){
     },100);
   },[]);
 
-  const confirmBatterChange=({strikerIdx,nonStrikerIdx,newBowler})=>{
-    setShowBatterChange(false);
-    setMatch(m=>{
-      if(!m)return m;
-      const nm=JSON.parse(JSON.stringify(m));
-      const bt=nm.teams[nm.batting];
-      const bw=nm.teams[nm.bowling];
-      nm.strikerIdx=strikerIdx;
-      nm.striker={...bt.players[strikerIdx]};
-      nm.nonStrikerIdx=nonStrikerIdx;
-      nm.nonStriker={...bt.players[nonStrikerIdx]};
-      nm.nextBatterIdx=Math.max(strikerIdx,nonStrikerIdx)+1;
-      if(newBowler){
-        const bi=bw.players.findIndex(p=>p.name===newBowler);
-        if(bi>=0){nm.currentBowlerIdx=bi;nm.currentBowler={...bw.players[bi]};}
-      }
-      return nm;
-    });
-  };
-
   const confirmBowler=name=>{
     setMatch(m=>{const nm=JSON.parse(JSON.stringify(m));const idx=nm.teams[nm.bowling].players.findIndex(p=>p.name===name);if(idx>=0){nm.currentBowler={...nm.teams[nm.bowling].players[idx]};nm.currentBowlerIdx=idx;}nm.needBowler=false;return nm;});
     setShowBowlerSelect(false);
-  };
-
-  const handleChangePlayer = (role, idx) => {
-    setMatch(m => {
-      const nm = JSON.parse(JSON.stringify(m));
-      const bt = nm.teams[nm.batting];
-      const bw = nm.teams[nm.bowling];
-      if (role === "striker") {
-        nm.strikerIdx = idx;
-        nm.striker = { ...bt.players[idx] };
-      } else if (role === "nonStriker") {
-        nm.nonStrikerIdx = idx;
-        nm.nonStriker = { ...bt.players[idx] };
-      } else if (role === "bowler") {
-        nm.currentBowlerIdx = idx;
-        nm.currentBowler = { ...bw.players[idx] };
-      }
-      return nm;
-    });
   };
 
   const doStrikeSwap=()=>{
@@ -1460,11 +1179,7 @@ export default function App(){
     if(match?.needBowler&&!showBowlerSelect)setShowBowlerSelect(true);
     if(match?.needInningsEnd)handleEndInnings();
     if(match?.pendingStrikeSwap&&!showStrikeSwap)setShowStrikeSwap(true);
-    if(match?.needBatterChange&&!showBatterChange){
-      setShowBatterChange(true);
-      setMatch(m=>m?({...m,needBatterChange:false}):m);
-    }
-  },[match?.needBowler,match?.needInningsEnd,match?.pendingStrikeSwap,match?.needBatterChange]);
+  },[match?.needBowler,match?.needInningsEnd,match?.pendingStrikeSwap]);
 
   useEffect(()=>{
     if(!match)return;
@@ -1475,60 +1190,31 @@ export default function App(){
     }
   },[match?.teams?.[0]?.balls,match?.teams?.[1]?.balls,match?.teams?.[0]?.wickets,match?.teams?.[1]?.wickets]);
 
-  const handleNewMatch=()=>{
-    if(user)clearLiveMatch(user.uid);
-    localStorage.removeItem("cricscan_live");
-    setMatch(null);setScreen("splash");
-  };
-  const handleSignOut=async()=>{ await logOut(); setMatch(null); setScreen("login"); };
+  const handleNewMatch=()=>{localStorage.removeItem("cricscan_live");setMatch(null);setScreen("splash");};
 
   return (
     <>
       <FontLink/>
-      {authLoading&&(
-        <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-          <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:24}} className="glow">🏏</div>
-          <div style={{color:"var(--muted)",fontSize:13,fontFamily:"Barlow Condensed",letterSpacing:2}}>LOADING...</div>
-        </div>
-      )}
-      {!authLoading&&screen==="login"&&<LoginScreen onLogin={()=>{}}/>}
-      {!authLoading&&screen==="splash"&&<SplashScreen onStart={()=>setScreen("setup")}/>}
-      {!authLoading&&screen==="setup"&&(
+      {screen==="splash"&&<SplashScreen onStart={()=>setScreen("setup")}/>}
+      {screen==="setup"&&(
         <div style={{position:"relative"}}>
-          <div style={{position:"absolute",top:16,right:16,zIndex:10,display:"flex",gap:6}}>
-            <button onClick={()=>setScreen("history")} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>📋</button>
-            <button onClick={handleSignOut} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>⏏ OUT</button>
-          </div>
+          <button onClick={()=>setScreen("history")} style={{position:"absolute",top:16,right:16,zIndex:10,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 12px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>📋 HISTORY</button>
           <SetupScreen onStart={startMatch}/>
         </div>
       )}
       {screen==="camera"&&<CameraSetup onDone={z=>{setMatch(m=>({...m,zones:z}));setScreen("scoring");}} onSkip={()=>setScreen("scoring")}/>}
       {screen==="scoring"&&match&&(
         <>
-          <div style={{display:"flex",borderBottom:"1px solid var(--border)",background:"var(--bg2)",alignItems:"center"}}>
+          <div style={{display:"flex",borderBottom:"1px solid var(--border)",background:"var(--bg2)"}}>
             <NavBtn active label="SCORE"/>
             <NavBtn onClick={()=>setScreen("scorecard")} label="SCORECARD"/>
             <NavBtn onClick={()=>setScreen("history")} label="HISTORY"/>
-            {user&&<div style={{padding:"0 8px",fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",borderLeft:"1px solid var(--border)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:80}}>{user.displayName||user.email?.split("@")[0]}</div>}
           </div>
-          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)} onChangePlayer={handleChangePlayer}/>
+          <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)}/>
           {showWicket&&<WicketDialog batters={[match.striker,match.nonStriker]} fieldingTeam={match.teams[match.bowling].players} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
           {showBowlerSelect&&<BowlerSelectDialog players={match.teams[match.bowling].players} currentBowler={match.currentBowler?.name} onSelect={confirmBowler}/>}
           {showStrikeSwap&&<StrikeSwapDialog striker={match.striker} nonStriker={match.nonStriker} onConfirm={()=>{doStrikeSwap();setShowStrikeSwap(false);}} onCancel={()=>{cancelStrikeSwap();setShowStrikeSwap(false);}}/>}
           {stumpsType&&<StumpsDialog type={stumpsType} onResume={()=>setStumpsType(null)} onEnd={()=>{setStumpsType(null);handleEndInnings();}}/>}
-          {showBatterChange&&match&&(
-            <BatterChangeDialog
-              title={match.teams[match.batting]?.wickets>0?"SELECT NEW BATTER":"CONFIRM OPENING PAIR"}
-              players={match.teams[match.batting]?.players||[]}
-              currentStrikerIdx={match.strikerIdx||0}
-              currentNonStrikerIdx={match.nonStrikerIdx||1}
-              showBowlerChange={true}
-              bowlerPlayers={match.teams[match.bowling]?.players||[]}
-              currentBowlerName={match.currentBowler?.name}
-              onConfirm={confirmBatterChange}
-              onCancel={()=>setShowBatterChange(false)}
-            />
-          )}
           {showLeaveConfirm&&(
             <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:20}}>
               <div style={{background:"var(--card)",border:"1px solid var(--danger)",borderRadius:"var(--rad2)",padding:24,width:"100%",maxWidth:300,textAlign:"center",animation:"fadeInUp 0.25s ease"}}>
@@ -1547,7 +1233,7 @@ export default function App(){
       )}
       {screen==="scorecard"&&match&&<ScorecardScreen match={match} onBack={()=>setScreen("scoring")}/>}
       {screen==="result"&&match&&<ResultScreen match={{...match,inningsHistory:match.inningsHistory||[]}} onNewMatch={handleNewMatch}/>}
-      {screen==="history"&&<HistoryScreen onBack={()=>setScreen(match?"scoring":"setup")} onView={r=>{setHistoryMatch(r);setScreen("historycard");}} user={user}/>}
+      {screen==="history"&&<HistoryScreen onBack={()=>setScreen(match?"scoring":"setup")} onView={r=>{setHistoryMatch(r);setScreen("historycard");}}/>}
       {screen==="historycard"&&historyMatch&&<ScorecardScreen match={{teams:historyMatch.teams,batting:0,bowling:1,format:historyMatch.format,ballType:historyMatch.ballType}} onBack={()=>setScreen("history")}/>}
     </>
   );
