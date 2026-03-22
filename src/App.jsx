@@ -1136,11 +1136,72 @@ function PitchMapScorer({ zones, onDetect, active }) {
   );
 }
 
+// ── BATTER CHANGE DIALOG (shown after wicket) ────────────────────────────────
+function BatterChangeDialog({title,players,currentStrikerIdx,currentNonStrikerIdx,showBowlerChange,bowlerPlayers,currentBowlerName,onConfirm,onCancel}){
+  const [strikerIdx,setStrikerIdx]=useState(currentStrikerIdx);
+  const [nonStrikerIdx,setNonStrikerIdx]=useState(currentNonStrikerIdx);
+  const [newBowler,setNewBowler]=useState(null);
+  const safePlayers=(players||[]).filter(Boolean);
+  const safeBowlers=(bowlerPlayers||[]).filter(Boolean);
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16,overflowY:"auto"}}>
+      <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:380,animation:"fadeInUp 0.25s ease"}}>
+        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2,marginBottom:14}}>{title||"SELECT BATTER"}</div>
+
+        <div style={{fontSize:11,color:"var(--muted)",letterSpacing:1,marginBottom:6,fontFamily:"Barlow Condensed",fontWeight:700}}>SELECT STRIKER (ON STRIKE)</div>
+        <div style={{maxHeight:160,overflowY:"auto",marginBottom:12}}>
+          {safePlayers.map((p,i)=>(
+            <div key={i} onClick={()=>!p.dismissed&&setStrikerIdx(i)}
+              style={{padding:"8px 12px",marginBottom:4,background:strikerIdx===i?"rgba(0,229,255,0.12)":p.dismissed?"rgba(255,61,90,0.04)":"var(--bg3)",
+                border:`1px solid ${strikerIdx===i?"var(--accent)":p.dismissed?"rgba(255,61,90,0.15)":"var(--border)"}`,
+                borderRadius:"var(--rad)",cursor:p.dismissed?"default":"pointer",opacity:p.dismissed?0.4:1,
+                display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontFamily:"Barlow Condensed",fontSize:14,color:strikerIdx===i?"var(--accent)":"var(--text)",fontWeight:strikerIdx===i?700:400}}>
+                {p.name}
+                {p.isCaptain&&<span style={{marginLeft:5,fontSize:8,background:"rgba(255,215,0,0.2)",color:"var(--gold)",borderRadius:3,padding:"1px 4px"}}>C</span>}
+                {p.isWK&&<span style={{marginLeft:3,fontSize:8,background:"rgba(0,229,255,0.15)",color:"var(--accent)",borderRadius:3,padding:"1px 4px"}}>WK</span>}
+              </span>
+              <span style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>
+                {p.dismissed?"OUT":`${p.runs||0}(${p.balls||0}b)`}
+                {strikerIdx===i&&<span style={{color:"var(--accent)",marginLeft:4}}>✓</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {showBowlerChange&&(
+          <>
+            <div style={{fontSize:11,color:"var(--muted)",letterSpacing:1,marginBottom:6,fontFamily:"Barlow Condensed",fontWeight:700}}>SELECT BOWLER (OPTIONAL)</div>
+            <div style={{maxHeight:140,overflowY:"auto",marginBottom:12}}>
+              {safeBowlers.filter(p=>p.name!==currentBowlerName).map((p,i)=>(
+                <div key={i} onClick={()=>setNewBowler(newBowler===p.name?null:p.name)}
+                  style={{padding:"8px 12px",marginBottom:4,background:newBowler===p.name?"rgba(255,107,53,0.12)":"var(--bg3)",
+                    border:`1px solid ${newBowler===p.name?"var(--accent2)":"var(--border)"}`,
+                    borderRadius:"var(--rad)",cursor:"pointer",display:"flex",justifyContent:"space-between"}}>
+                  <span style={{fontFamily:"Barlow Condensed",fontSize:14,color:newBowler===p.name?"var(--accent2)":"var(--text)"}}>{p.name}</span>
+                  <span style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>{p.wickets||0}w {p.runsConceded||0}r</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onCancel} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Skip</button>
+          <button onClick={()=>onConfirm({strikerIdx,nonStrikerIdx,newBowler})}
+            style={{flex:2,padding:10,background:"var(--accent)",color:"#000",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>CONFIRM ✓</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── CHANGE PLAYER DIALOG ─────────────────────────────────────────────────────
 function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) {
   if (!players || players.length === 0) return null;
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:16 }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500, padding:16 }}>
       <div style={{ background:"var(--card)", border:"1px solid var(--accent)", borderRadius:"var(--rad2)", padding:20, width:"100%", maxWidth:340, animation:"fadeInUp 0.25s ease" }}>
         <div style={{ fontFamily:"Orbitron", color:"var(--accent)", fontSize:12, letterSpacing:2, marginBottom:14 }}>{title}</div>
         <div style={{ maxHeight:320, overflowY:"auto" }}>
@@ -1178,7 +1239,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
   if(!match||!match.teams||!match.teams[match.batting]||!match.striker||!match.nonStriker) return null;
   const bt=match.teams[match.batting];
   const isChasing=match.inning>0&&match.format!=="test";
-  const target=isChasing?match.teams[0].score+1:null;
+  const target=isChasing?(match.teams[0]?.score||0)+1:null;
   const totalBalls=match.overs*6;
   const ballsLeft=Math.max(0,totalBalls-bt.balls);
   const runsNeeded=target?Math.max(0,target-bt.score):null;
@@ -1203,8 +1264,10 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
   };
 
   const handleDeclare=()=>{
-    const r=parseInt(declareRuns);if(isNaN(r)||r<0)return;
-    onBall(r,extraType||"normal");setExtraType(null);setDeclareDialog(null);setDeclareRuns("");
+    const r=parseInt(declareRuns);
+    if(isNaN(r)||r<0||r>36)return;
+    setDeclareDialog(null);setDeclareRuns("");setExtraType(null);
+    onBall(r,"normal");
     notify(r===4?"FOUR! 🏏":r===6?"SIX! 🚀":`${r} run${r!==1?"s":""} declared`,r===6?"var(--accent3)":r===4?"var(--gold)":"var(--accent)");
   };
 
@@ -1326,7 +1389,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
 
       {/* ════ DECLARE RUNS DIALOG ════ */}
       {declareDialog&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}}>
           <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:340,animation:"fadeInUp 0.25s ease"}}>
             <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:12,letterSpacing:2,marginBottom:4}}>DECLARE RUNS</div>
             <div style={{color:"var(--muted)",fontSize:13,marginBottom:14}}><b style={{color:"var(--text)"}}>{declareDialog==="striker"?match.striker?.name:match.nonStriker?.name}</b> — how many runs this ball?</div>
@@ -1484,7 +1547,7 @@ function WicketDialog({batters,fieldingTeam,onConfirm,onCancel}){
   const safeFielders=(fieldingTeam||[]).filter(Boolean);
   if(safeBatters.length===0) return null;
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:150,padding:16}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}}>
       <div style={{background:"var(--card)",border:"1px solid var(--danger)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:380,animation:"fadeInUp 0.25s ease"}}>
         <div style={{fontFamily:"Orbitron",color:"var(--danger)",fontSize:14,marginBottom:14,letterSpacing:2}}>🔴 WICKET!</div>
         <Label>OUT BATTER</Label>
@@ -1917,7 +1980,7 @@ export default function App(){
       if(u){
         // Try restore live match from Firebase
         try{
-          const live = await getLiveMatch(u.uid);
+          const live = await getLiveMatch();
           if(live&&!live.ended&&live.teams&&live.teams.length===2&&live.striker&&live.currentBowler){
             setMatch(live); setScreen("scoring"); return;
           }
@@ -1933,7 +1996,7 @@ export default function App(){
   // Auto-save live match to Firebase on every change
   useEffect(()=>{
     if(match&&!match.ended&&user){
-      saveLiveMatch(user.uid, match);
+      saveLiveMatch(match);
     }
   },[match, user]);
 
@@ -2008,7 +2071,6 @@ export default function App(){
       const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
       if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
       if(bt.wickets>=10||bt.balls>=nm.overs*6)nm.needInningsEnd=true;
-      else nm.needBatterChange=true; // show batter change after wicket
       return nm;
     });
   };
@@ -2162,7 +2224,7 @@ export default function App(){
   },[match?.teams?.[0]?.balls,match?.teams?.[1]?.balls,match?.teams?.[0]?.wickets,match?.teams?.[1]?.wickets]);
 
   const handleNewMatch=()=>{
-    if(user)clearLiveMatch(user.uid);
+    if(user)clearLiveMatch();
     localStorage.removeItem("cricscan_live");
     setMatch(null);setScreen("splash");
   };
@@ -2183,7 +2245,9 @@ export default function App(){
         <div style={{position:"relative"}}>
           <div style={{position:"absolute",top:16,right:16,zIndex:10,display:"flex",gap:6}}>
             <button onClick={()=>setScreen("history")} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>📋</button>
-            <button onClick={handleSignOut} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>⏏ OUT</button>
+            <button onClick={()=>setScreen("rules")} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>📖</button>
+            <button onClick={()=>setShowLiveBrowser(true)} style={{background:"rgba(57,255,20,0.12)",border:"1px solid rgba(57,255,20,0.4)",color:"var(--accent3)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>📡</button>
+            <button onClick={handleSignOut} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>⏏</button>
           </div>
           <SetupScreen onStart={startMatch}/>
         </div>
