@@ -987,152 +987,136 @@ function SetupScreen({onStart}){
   );
 }
 
-// ── CAMERA SETUP ──────────────────────────────────────────────────────────────
-function CameraSetup({onDone,onSkip}){
-  const videoRef=useRef(null);const canvasRef=useRef(null);
-  const [zones,setZones]=useState([]);const [drawing,setDrawing]=useState(false);const [start,setStart]=useState(null);
-  const [selRuns,setSelRuns]=useState(4);const [streaming,setStreaming]=useState(false);const [error,setError]=useState("");
-  useEffect(()=>{
-    navigator.mediaDevices?.getUserMedia({video:{facingMode:"environment"}}).then(s=>{if(videoRef.current){videoRef.current.srcObject=s;setStreaming(true);}}).catch(()=>setError("Camera access denied. Skip to use manual scoring only."));
-    return ()=>videoRef.current?.srcObject?.getTracks().forEach(t=>t.stop());
-  },[]);
-  const getPos=(e,el)=>{const r=el.getBoundingClientRect();return{x:((e.touches?.[0]?.clientX??e.clientX)-r.left)/r.width,y:((e.touches?.[0]?.clientY??e.clientY)-r.top)/r.height};};
-  const onDown=e=>{const p=getPos(e,canvasRef.current);setStart(p);setDrawing(true);};
-  const onUp=e=>{if(!drawing||!start)return;const p=getPos(e,canvasRef.current);setZones(z=>[...z,{x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y),runs:selRuns}]);setDrawing(false);setStart(null);};
-  return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",padding:16}}>
-      <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:14,marginBottom:6,letterSpacing:2}}>📷 AI CAMERA ZONES</div>
-      <div style={{color:"var(--muted)",fontSize:12,marginBottom:10,lineHeight:1.5}}>Point your phone at the pitch from a fixed position. Draw zones and tag them with runs. AI will auto-score when ball lands in a zone.</div>
-      {error&&<div style={{color:"var(--danger)",background:"#1a0a0a",padding:10,borderRadius:"var(--rad)",marginBottom:10,fontSize:12}}>{error}</div>}
-      <div style={{display:"flex",gap:6,marginBottom:8}}>
-        {[1,2,3,4,6].map(r=>(<button key={r} onClick={()=>setSelRuns(r)} style={{flex:1,padding:"7px 0",background:selRuns===r?"var(--accent2)":"var(--bg3)",color:selRuns===r?"#fff":"var(--muted)",border:`1px solid ${selRuns===r?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:14,cursor:"pointer"}}>{r}</button>))}
-      </div>
-      <div style={{position:"relative",width:"100%",aspectRatio:"16/9",background:"#000",borderRadius:"var(--rad2)",overflow:"hidden",border:"1px solid var(--border)",marginBottom:8}}>
-        <video ref={videoRef} autoPlay playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-        <canvas ref={canvasRef} style={{position:"absolute",inset:0,width:"100%",height:"100%",cursor:"crosshair"}} onMouseDown={onDown} onMouseUp={onUp} onTouchStart={onDown} onTouchEnd={onUp}/>
-        {zones.map((z,i)=>(<div key={i} style={{position:"absolute",left:`${z.x*100}%`,top:`${z.y*100}%`,width:`${z.w*100}%`,height:`${z.h*100}%`,border:"2px solid var(--accent2)",background:"rgba(255,107,53,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:"var(--accent2)",fontFamily:"Orbitron",fontSize:12,fontWeight:700,textShadow:"0 0 6px #000"}}>{z.runs}</span></div>))}
-        {!streaming&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--muted)",fontSize:13}}>Starting camera...</div>}
-        <div style={{position:"absolute",top:6,left:8,background:"rgba(0,0,0,0.7)",borderRadius:4,padding:"2px 8px",fontSize:11,color:"var(--muted)"}}>Zones: {zones.length}</div>
-      </div>
-      <div style={{display:"flex",gap:8}}>
-        <button onClick={()=>setZones([])} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>Clear All</button>
-        <button onClick={onSkip} style={{flex:1,padding:10,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>Skip →</button>
-        <button onClick={()=>onDone(zones)} style={{flex:2,padding:10,background:"var(--accent)",color:"#000",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>SAVE & START ✓</button>
-      </div>
-    </div>
-  );
-}
+// ── PITCH MAP ZONE SETUP ─────────────────────────────────────────────────────
+function PitchMapSetup({ onDone, onSkip }) {
+  const [zones, setZones] = useState([
+    { id: 0, label: "SIX", runs: 6, color: "#39ff14", x: 5, y: 5, w: 90, h: 12 },
+    { id: 1, label: "4 (OFF)", runs: 4, color: "#ffd700", x: 5, y: 18, w: 42, h: 14 },
+    { id: 2, label: "4 (LEG)", runs: 4, color: "#ffd700", x: 53, y: 18, w: 42, h: 14 },
+    { id: 3, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 5, y: 33, w: 42, h: 14 },
+    { id: 4, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 53, y: 33, w: 42, h: 14 },
+    { id: 5, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 15, y: 48, w: 32, h: 12 },
+    { id: 6, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 53, y: 48, w: 32, h: 12 },
+    { id: 7, label: "1 RUN", runs: 1, color: "#e8f4f8", x: 25, y: 61, w: 20, h: 12 },
+    { id: 8, label: "1 RUN", runs: 1, color: "#e8f4f8", x: 55, y: 61, w: 20, h: 12 },
+    { id: 9, label: "DOT", runs: 0, color: "#4a6278", x: 35, y: 74, w: 30, h: 14 },
+  ]);
+  const [editing, setEditing] = useState(null);
 
-// ── CAMERA TRACKER ────────────────────────────────────────────────────────────
-function CameraTracker({zones,onDetect,active}){
-  const videoRef=useRef(null);const canvasRef=useRef(null);const animRef=useRef(null);const prevRef=useRef(null);
-  const [detected,setDetected]=useState(null);const [streaming,setStreaming]=useState(false);
-  useEffect(()=>{
-    if(!active)return;
-    navigator.mediaDevices?.getUserMedia({video:{facingMode:"environment"}}).then(s=>{if(videoRef.current){videoRef.current.srcObject=s;setStreaming(true);}}).catch(()=>{});
-    return ()=>{videoRef.current?.srcObject?.getTracks().forEach(t=>t.stop());cancelAnimationFrame(animRef.current);};
-  },[active]);
-  useEffect(()=>{
-    if(!streaming||!active)return;
-    const canvas=canvasRef.current;const ctx=canvas.getContext("2d");
-    const analyze=()=>{
-      if(!videoRef.current?.readyState>=2){animRef.current=requestAnimationFrame(analyze);return;}
-      canvas.width=videoRef.current.videoWidth||320;canvas.height=videoRef.current.videoHeight||240;
-      ctx.drawImage(videoRef.current,0,0);
-      const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
-      if(prevRef.current){
-        let sx=0,sy=0,count=0;
-        for(let i=0;i<frame.data.length;i+=4){const d=Math.abs(frame.data[i]-prevRef.current[i])+Math.abs(frame.data[i+1]-prevRef.current[i+1])+Math.abs(frame.data[i+2]-prevRef.current[i+2]);if(d>80){const px=(i/4)%canvas.width;const py=Math.floor((i/4)/canvas.width);sx+=px;sy+=py;count++;}}
-        if(count>200){const cx=sx/count/canvas.width;const cy=sy/count/canvas.height;for(const z of zones){if(cx>=z.x&&cx<=z.x+z.w&&cy>=z.y&&cy<=z.y+z.h){setDetected({runs:z.runs,cx,cy});onDetect(z.runs);break;}}}
-        else setDetected(null);
-      }
-      prevRef.current=frame.data.slice();animRef.current=requestAnimationFrame(analyze);
-    };
-    animRef.current=requestAnimationFrame(analyze);
-    return ()=>cancelAnimationFrame(animRef.current);
-  },[streaming,active,zones]);
-  if(!active)return null;
-  return (
-    <div style={{position:"relative",width:"100%",aspectRatio:"16/9",background:"#000",borderRadius:"var(--rad)",overflow:"hidden",border:"1px solid var(--border)",marginBottom:10}}>
-      <video ref={videoRef} autoPlay playsInline muted style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-      <canvas ref={canvasRef} style={{display:"none"}}/>
-      {zones.map((z,i)=>(<div key={i} style={{position:"absolute",left:`${z.x*100}%`,top:`${z.y*100}%`,width:`${z.w*100}%`,height:`${z.h*100}%`,border:"1px solid rgba(0,229,255,0.3)",background:"rgba(0,229,255,0.04)"}}><span style={{color:"rgba(0,229,255,0.6)",fontFamily:"Orbitron",fontSize:8}}>{z.runs}</span></div>))}
-      {detected&&<div style={{position:"absolute",left:`${detected.cx*100}%`,top:`${detected.cy*100}%`,transform:"translate(-50%,-50%)",background:"var(--accent2)",borderRadius:"50%",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Orbitron",fontWeight:900,fontSize:14,color:"#fff",boxShadow:"0 0 20px var(--accent2)"}} className="bounce-in">{detected.runs}</div>}
-      <div style={{position:"absolute",top:6,right:8,background:"rgba(255,61,90,0.9)",borderRadius:3,padding:"2px 7px",fontSize:9,fontFamily:"Orbitron",color:"#fff",letterSpacing:1}}><span className="blink">●</span> LIVE AI</div>
-    </div>
-  );
-}
-
-// ── BATTER CHANGE DIALOG ─────────────────────────────────────────────────────
-function BatterChangeDialog({title,players,currentStrikerIdx,currentNonStrikerIdx,onConfirm,onCancel,showBowlerChange,bowlerPlayers,currentBowlerName}){
-  const [strikerIdx,setStrikerIdx]=useState(currentStrikerIdx);
-  const [nonStrikerIdx,setNonStrikerIdx]=useState(currentNonStrikerIdx);
-  const [newBowler,setNewBowler]=useState(currentBowlerName||"");
-  const available=players.filter((_,i)=>!players[i]?.dismissed);
+  const updateZone = (id, field, val) => {
+    setZones(z => z.map(zone => zone.id === id ? { ...zone, [field]: val } : zone));
+  };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}>
-      <div style={{background:"var(--card)",border:"1px solid var(--accent)",borderRadius:"var(--rad2)",padding:20,width:"100%",maxWidth:380,animation:"fadeInUp 0.25s ease"}}>
-        <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:12,letterSpacing:2,marginBottom:14}}>{title}</div>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", padding: 16 }}>
+      <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 14, marginBottom: 6, letterSpacing: 2 }}>🏏 PITCH MAP SETUP</div>
+      <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 14, lineHeight: 1.5 }}>
+        Tap any zone on the pitch map during scoring to instantly record runs. Customise zones below.
+      </div>
 
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:11,color:"var(--accent)",letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:5}}>⚡ STRIKER (ON STRIKE)</div>
-          <select value={strikerIdx} onChange={e=>setStrikerIdx(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--accent)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}>
-            {players.map((p,i)=>(!p.dismissed||i===currentStrikerIdx)&&<option key={i} value={i}>{p.name}{p.isCaptain?" (C)":""}{p.isWK?" (WK)":""}</option>)}
-          </select>
-        </div>
+      {/* Pitch map preview */}
+      <div style={{ position: "relative", width: "100%", paddingBottom: "95%", background: "linear-gradient(180deg,#1a3a1a 0%,#2d5a1b 40%,#3a7a20 70%,#2d5a1b 100%)", borderRadius: 12, border: "2px solid var(--border)", marginBottom: 14, overflow: "hidden" }}>
+        {/* Pitch strip */}
+        <div style={{ position: "absolute", left: "38%", top: "15%", width: "24%", height: "70%", background: "#c8a96e", borderRadius: 4, border: "1px solid #a08050" }} />
+        {/* Crease lines */}
+        <div style={{ position: "absolute", left: "35%", top: "22%", width: "30%", height: "2px", background: "rgba(255,255,255,0.6)" }} />
+        <div style={{ position: "absolute", left: "35%", top: "76%", width: "30%", height: "2px", background: "rgba(255,255,255,0.6)" }} />
+        {/* Stumps */}
+        <div style={{ position: "absolute", left: "48%", top: "23%", width: "4%", height: "8px", background: "#fff", borderRadius: 1 }} />
+        <div style={{ position: "absolute", left: "48%", top: "69%", width: "4%", height: "8px", background: "#fff", borderRadius: 1 }} />
+        {/* 30-yard circle */}
+        <div style={{ position: "absolute", left: "15%", top: "20%", width: "70%", height: "60%", borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.3)" }} />
 
-        <div style={{marginBottom:showBowlerChange?12:16}}>
-          <div style={{fontSize:11,color:"var(--muted)",letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:5}}>NON-STRIKER</div>
-          <select value={nonStrikerIdx} onChange={e=>setNonStrikerIdx(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}>
-            {players.map((p,i)=>(!p.dismissed||i===currentNonStrikerIdx)&&<option key={i} value={i}>{p.name}{p.isCaptain?" (C)":""}{p.isWK?" (WK)":""}</option>)}
-          </select>
-        </div>
-
-        {showBowlerChange&&(
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:11,color:"var(--accent2)",letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:5}}>🎳 BOWLER</div>
-            <select value={newBowler} onChange={e=>setNewBowler(e.target.value)} style={{width:"100%",padding:"10px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--accent2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15}}>
-              {(bowlerPlayers||[]).map((p,i)=><option key={i} value={p.name}>{p.name}{p.isCaptain?" (C)":""}</option>)}
-            </select>
+        {/* Zone overlays */}
+        {zones.map(z => (
+          <div key={z.id} onClick={() => setEditing(editing === z.id ? null : z.id)}
+            style={{ position: "absolute", left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%`,
+              background: `${z.color}22`, border: `2px solid ${z.color}88`,
+              borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+              transition: "all 0.15s", boxShadow: editing === z.id ? `0 0 12px ${z.color}` : "none" }}>
+            <span style={{ fontFamily: "Orbitron", fontSize: 9, fontWeight: 700, color: z.color, textShadow: "0 0 6px #000" }}>{z.label}</span>
           </div>
-        )}
+        ))}
+      </div>
 
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={onCancel} style={{flex:1,padding:11,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
-          <button onClick={()=>onConfirm({strikerIdx,nonStrikerIdx,newBowler})} disabled={strikerIdx===nonStrikerIdx} style={{flex:2,padding:11,background:strikerIdx!==nonStrikerIdx?"var(--accent)":"var(--bg3)",color:strikerIdx!==nonStrikerIdx?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:strikerIdx!==nonStrikerIdx?"pointer":"default",letterSpacing:1}}>CONFIRM ✓</button>
+      {/* Edit selected zone */}
+      {editing !== null && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad)", padding: 12, marginBottom: 12, animation: "fadeInUp 0.2s ease" }}>
+          <div style={{ fontFamily: "Barlow Condensed", color: "var(--accent)", fontSize: 12, letterSpacing: 2, marginBottom: 8 }}>
+            EDITING: {zones.find(z => z.id === editing)?.label}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ color: "var(--muted)", fontSize: 12, fontFamily: "Barlow Condensed" }}>Runs:</span>
+            {[0, 1, 2, 3, 4, 6].map(r => (
+              <button key={r} onClick={() => updateZone(editing, "runs", r)}
+                style={{ width: 32, height: 32, background: zones.find(z=>z.id===editing)?.runs===r ? "var(--accent)" : "var(--bg3)",
+                  color: zones.find(z=>z.id===editing)?.runs===r ? "#000" : "var(--text)",
+                  border: `1px solid ${zones.find(z=>z.id===editing)?.runs===r?"var(--accent)":"var(--border)"}`,
+                  borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{r===0?"•":r}</button>
+            ))}
+          </div>
         </div>
-        {strikerIdx===nonStrikerIdx&&<div style={{color:"var(--danger)",fontSize:11,textAlign:"center",marginTop:6,fontFamily:"Barlow Condensed"}}>Striker and non-striker must be different players</div>}
+      )}
+
+      <div style={{ color: "var(--muted)", fontSize: 11, fontFamily: "Barlow Condensed", marginBottom: 12, textAlign: "center" }}>
+        Tap a zone to edit its run value · Zones auto-saved for this match
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onSkip} style={{ flex: 1, padding: 11, background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Skip →</button>
+        <button onClick={() => onDone(zones)} style={{ flex: 2, padding: 11, background: "var(--accent)", color: "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>USE THIS MAP ✓</button>
       </div>
     </div>
   );
 }
 
+// ── PITCH MAP SCORER (replaces CameraTracker) ─────────────────────────────────
+function PitchMapScorer({ zones, onDetect, active }) {
+  const [lastHit, setLastHit] = useState(null);
 
-// ── CHANGE PLAYER DIALOG ──────────────────────────────────────────────────────
-function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) {
+  const handleZoneTap = (zone) => {
+    setLastHit(zone.id);
+    onDetect(zone.runs);
+    setTimeout(() => setLastHit(null), 800);
+  };
+
+  if (!active) return null;
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "var(--rad2)", padding: 20, width: "100%", maxWidth: 340, animation: "fadeInUp 0.25s ease" }}>
-        <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 12, letterSpacing: 2, marginBottom: 14 }}>{title}</div>
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
-          {players.map((p, i) => (
-            <div key={i} onClick={() => onSelect(i)}
-              style={{ padding: "11px 14px", marginBottom: 6, background: currentIdx === i ? "rgba(0,229,255,0.12)" : p.dismissed ? "rgba(255,61,90,0.05)" : "var(--bg3)", border: `1px solid ${currentIdx === i ? "var(--accent)" : p.dismissed ? "rgba(255,61,90,0.2)" : "var(--border)"}`, borderRadius: "var(--rad)", cursor: p.dismissed ? "default" : "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: p.dismissed ? 0.45 : 1 }}>
-              <div>
-                <span style={{ fontFamily: "Barlow Condensed", fontSize: 15, color: currentIdx === i ? "var(--accent)" : "var(--text)", fontWeight: currentIdx === i ? 700 : 400 }}>{p.name}</span>
-                {p.isCaptain && <span style={{ marginLeft: 6, fontSize: 9, background: "rgba(255,215,0,0.2)", color: "var(--gold)", borderRadius: 3, padding: "1px 5px", fontFamily: "Barlow Condensed", fontWeight: 700 }}>C</span>}
-                {p.isWK && <span style={{ marginLeft: 4, fontSize: 9, background: "rgba(0,229,255,0.15)", color: "var(--accent)", borderRadius: 3, padding: "1px 5px", fontFamily: "Barlow Condensed", fontWeight: 700 }}>WK</span>}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: 12, color: "var(--muted)", fontFamily: "Barlow Condensed" }}>{p.runs || 0}({p.balls || 0})</span>
-                {p.dismissed && <div style={{ fontSize: 9, color: "var(--danger)", fontFamily: "Barlow Condensed" }}>OUT</div>}
-                {currentIdx === i && <div style={{ fontSize: 9, color: "var(--accent)", fontFamily: "Barlow Condensed" }}>CURRENT</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-        <button onClick={onCancel} style={{ width: "100%", marginTop: 10, padding: "10px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: "var(--accent)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 2, marginBottom: 8, textAlign: "center" }}>
+        🏏 TAP WHERE THE BALL LANDED
+      </div>
+
+      {/* Pitch map */}
+      <div style={{ position: "relative", width: "100%", paddingBottom: "95%", background: "linear-gradient(180deg,#1a3a1a 0%,#2d5a1b 40%,#3a7a20 70%,#2d5a1b 100%)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
+        {/* Pitch strip */}
+        <div style={{ position: "absolute", left: "38%", top: "15%", width: "24%", height: "70%", background: "#c8a96e", borderRadius: 4, border: "1px solid #a08050" }} />
+        <div style={{ position: "absolute", left: "35%", top: "22%", width: "30%", height: "2px", background: "rgba(255,255,255,0.6)" }} />
+        <div style={{ position: "absolute", left: "35%", top: "76%", width: "30%", height: "2px", background: "rgba(255,255,255,0.6)" }} />
+        <div style={{ position: "absolute", left: "48%", top: "23%", width: "4%", height: "8px", background: "#fff", borderRadius: 1 }} />
+        <div style={{ position: "absolute", left: "48%", top: "69%", width: "4%", height: "8px", background: "#fff", borderRadius: 1 }} />
+        <div style={{ position: "absolute", left: "15%", top: "20%", width: "70%", height: "60%", borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.2)" }} />
+
+        {/* Tappable zones */}
+        {(zones || []).map(z => (
+          <div key={z.id} onClick={() => handleZoneTap(z)}
+            style={{ position: "absolute", left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%`,
+              background: lastHit === z.id ? `${z.color}55` : `${z.color}18`,
+              border: `2px solid ${lastHit === z.id ? z.color : z.color+"55"}`,
+              borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", transition: "all 0.1s",
+              transform: lastHit === z.id ? "scale(1.05)" : "scale(1)",
+              boxShadow: lastHit === z.id ? `0 0 16px ${z.color}` : "none" }}>
+            <span style={{ fontFamily: "Orbitron", fontSize: 9, fontWeight: 700, color: lastHit === z.id ? z.color : z.color+"99", textShadow: "0 0 6px #000" }}>
+              {lastHit === z.id ? `+${z.runs}` : z.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ textAlign: "center", fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed", marginTop: 5, letterSpacing: 1 }}>
+        Tap a zone → runs recorded instantly
       </div>
     </div>
   );
@@ -1148,7 +1132,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
   const ballsLeft=Math.max(0,totalBalls-bt.balls);
   const runsNeeded=target?Math.max(0,target-bt.score):null;
 
-  const [showCamera,setShowCamera]=useState(false);
+  const [showCamera,setShowCamera]=useState(false); // pitch map toggle
   const [notif,setNotif]=useState(null);
   const [extraType,setExtraType]=useState(null);
   const [declareDialog,setDeclareDialog]=useState(null);
@@ -1309,9 +1293,9 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
 
         {/* AI Camera toggle */}
         <button onClick={()=>setShowCamera(s=>!s)} style={{width:"100%",padding:"7px 0",marginBottom:8,background:showCamera?"rgba(0,229,255,0.08)":"var(--bg3)",color:"var(--accent)",border:`1px solid ${showCamera?"var(--accent)":"rgba(0,229,255,0.3)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,letterSpacing:1,cursor:"pointer"}}>
-          {showCamera?"📷 HIDE AI CAMERA":"📷 SHOW AI CAMERA"}
+          {showCamera?"🏏 HIDE PITCH MAP":"🏏 SHOW PITCH MAP"}
         </button>
-        {showCamera&&<CameraTracker zones={match.zones||[]} onDetect={r=>handleRun(r,"camera")} active={showCamera}/>}
+        {showCamera&&<PitchMapScorer zones={match.zones||[]} onDetect={r=>{if(r!==undefined){handleRun(r,"camera");}}} active={showCamera}/>}
 
         {/* Extra mode indicator */}
         {extraType&&(
@@ -2148,7 +2132,7 @@ export default function App(){
           <SetupScreen onStart={startMatch}/>
         </div>
       )}
-      {screen==="camera"&&<CameraSetup onDone={z=>{setMatch(m=>({...m,zones:z}));setScreen("scoring");}} onSkip={()=>setScreen("scoring")}/>}
+      {screen==="camera"&&<PitchMapSetup onDone={z=>{setMatch(m=>({...m,zones:z}));setScreen("scoring");}} onSkip={()=>setScreen("scoring")}/>}
       {screen==="scoring"&&match&&(
         <>
           <div style={{display:"flex",borderBottom:"1px solid var(--border)",background:"var(--bg2)",alignItems:"center"}}>
