@@ -3,13 +3,12 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPasswor
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, orderBy } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBKkL2WvMwgY53QysMwqbUNiSDiooN9lO8",
-  authDomain: "cricscan-5ff75.firebaseapp.com",
-  projectId: "cricscan-5ff75",
-  storageBucket: "cricscan-5ff75.firebasestorage.app",
-  messagingSenderId: "164600531737",
-  appId: "1:164600531737:web:ba706a245a2a8f9b6e1388",
-  measurementId: "G-4CLKV72RGX"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
@@ -17,14 +16,12 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
-// ── AUTH HELPERS ──────────────────────────────────────────────────────────────
 export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const registerWithEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
 export const logOut = () => signOut(auth);
 export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
 
-// ── LIVE MATCH (localStorage) ─────────────────────────────────────────────────
 export const saveLiveMatch = (match) => {
   try { localStorage.setItem("cricscan_live", JSON.stringify(match)); } catch {}
 };
@@ -40,15 +37,12 @@ export const getLiveMatch = () => {
 };
 export const clearLiveMatch = () => { try { localStorage.removeItem("cricscan_live"); } catch {} };
 
-// ── MATCH HISTORY (Firestore + localStorage fallback) ─────────────────────────
 export const saveMatch = async (record, userId, userEmail) => {
-  // Always save locally
   try {
     const prev = JSON.parse(localStorage.getItem("cricscan_history") || "[]");
     prev.push(record);
     localStorage.setItem("cricscan_history", JSON.stringify(prev));
   } catch {}
-  // Save to Firestore if logged in
   if (userId) {
     try {
       await addDoc(collection(db, "matches"), { ...record, userId, userEmail, createdAt: new Date().toISOString() });
@@ -68,7 +62,6 @@ export const getMatchHistory = async (userId) => {
     const localOnly = local.filter(r => !cloudIds.has(String(r.id)));
     return [...cloud, ...localOnly];
   } catch (e) {
-    console.log("Firestore fetch failed, using local", e);
     return local;
   }
 };
