@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { auth, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, getLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase";
+import html2canvas from "html2canvas";
+import { auth, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, getLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase.js";
 
 const FontLink = () => (
   <style>{`
@@ -201,6 +202,586 @@ function SplashScreen({onStart,onSignOut,user}){
   );
 }
 
+
+// ── COIN TOSS SCREEN ──────────────────────────────────────────────────────────
+function CoinTossScreen({ team1, team2, onComplete }) {
+  const [step, setStep] = useState("who"); // who | flip | result
+  const [caller, setCaller] = useState(null); // 0=team1, 1=team2
+  const [flipping, setFlipping] = useState(false);
+  const [coinResult, setCoinResult] = useState(null); // heads | tails
+  const [callerChoice, setCallerChoice] = useState(null); // heads | tails
+  const [won, setWon] = useState(false);
+  const [choice, setChoice] = useState(null); // bat | bowl
+
+  const flipCoin = () => {
+    setFlipping(true);
+    setTimeout(() => {
+      const result = Math.random() > 0.5 ? "heads" : "tails";
+      setCoinResult(result);
+      const didWin = result === callerChoice;
+      setWon(didWin);
+      setFlipping(false);
+      setStep("result");
+    }, 2000);
+  };
+
+  const handleChoice = (c) => {
+    setChoice(c);
+    // determine batting first
+    const callerTeam = caller;
+    const otherTeam = 1 - caller;
+    let battingFirst;
+    if (won) {
+      battingFirst = c === "bat" ? callerTeam : otherTeam;
+    } else {
+      battingFirst = c === "bat" ? otherTeam : callerTeam;
+    }
+    const winnerName = won ? [team1, team2][callerTeam] : [team1, team2][otherTeam];
+    const tossMsg = `${winnerName} won the toss and elected to ${won ? (c === "bat" ? "bat" : "bowl") : (c === "bat" ? "bowl" : "bat")} first`;
+    onComplete({ tossWinner: won ? callerTeam : otherTeam, tossChoice: won ? c : (c === "bat" ? "bowl" : "bat"), tossMsg, battingFirst });
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at center,#0d1f30 0%,#080c10 80%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 16, letterSpacing: 3, marginBottom: 24 }} className="glow">🪙 TOSS</div>
+
+      {step === "who" && (
+        <div style={{ width: "100%", maxWidth: 340, animation: "fadeInUp 0.3s ease" }}>
+          <div style={{ color: "var(--muted)", fontSize: 14, textAlign: "center", marginBottom: 20, fontFamily: "Barlow Condensed", letterSpacing: 1 }}>WHO IS CALLING THE TOSS?</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[team1, team2].map((t, i) => (
+              <button key={i} onClick={() => setCaller(i)} style={{ padding: "16px 0", background: caller === i ? "rgba(0,229,255,0.12)" : "var(--card)", color: caller === i ? "var(--accent)" : "var(--text)", border: `2px solid ${caller === i ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 2 }}>{t}</button>
+            ))}
+          </div>
+          {caller !== null && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{ color: "var(--muted)", fontSize: 13, textAlign: "center", marginBottom: 14, fontFamily: "Barlow Condensed", letterSpacing: 1 }}>{[team1, team2][caller].toUpperCase()} CALLS:</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                {["heads", "tails"].map(c => (
+                  <button key={c} onClick={() => setCallerChoice(c)} style={{ flex: 1, padding: "14px 0", background: callerChoice === c ? "rgba(255,215,0,0.15)" : "var(--bg3)", color: callerChoice === c ? "var(--gold)" : "var(--muted)", border: `2px solid ${callerChoice === c ? "var(--gold)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase" }}>{c === "heads" ? "👑 HEADS" : "🔵 TAILS"}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {caller !== null && callerChoice && (
+            <button onClick={() => setStep("flip")} style={{ width: "100%", marginTop: 20, padding: "14px 0", background: "linear-gradient(135deg,var(--gold),#cc9900)", color: "#000", fontFamily: "Orbitron", fontWeight: 700, fontSize: 14, letterSpacing: 2, border: "none", borderRadius: "var(--rad)", cursor: "pointer" }}>
+              FLIP THE COIN →
+            </button>
+          )}
+        </div>
+      )}
+
+      {step === "flip" && (
+        <div style={{ textAlign: "center", animation: "fadeInUp 0.3s ease" }}>
+          <div style={{ fontSize: 14, color: "var(--muted)", fontFamily: "Barlow Condensed", marginBottom: 30, letterSpacing: 1 }}>{[team1, team2][caller]} called <b style={{ color: "var(--gold)" }}>{callerChoice?.toUpperCase()}</b></div>
+          <div onClick={!flipping ? flipCoin : undefined}
+            style={{ width: 140, height: 140, borderRadius: "50%", background: flipping ? "conic-gradient(var(--gold),#cc9900,var(--gold))" : "linear-gradient(135deg,var(--gold),#cc9900)", margin: "0 auto 30px", display: "flex", alignItems: "center", justifyContent: "center", cursor: flipping ? "default" : "pointer", fontSize: 60, boxShadow: "0 0 40px rgba(255,215,0,0.4)", animation: flipping ? "spin 0.3s linear infinite" : "none", transition: "transform 0.2s" }}>
+            {flipping ? "🌀" : "🪙"}
+          </div>
+          <style>{`@keyframes spin { from{transform:rotateY(0)} to{transform:rotateY(360deg)} }`}</style>
+          {!flipping && <div style={{ color: "var(--muted)", fontSize: 14, fontFamily: "Barlow Condensed", letterSpacing: 1 }}>TAP THE COIN TO FLIP!</div>}
+          {flipping && <div style={{ color: "var(--gold)", fontSize: 14, fontFamily: "Orbitron", letterSpacing: 2 }} className="blink">FLIPPING...</div>}
+        </div>
+      )}
+
+      {step === "result" && (
+        <div style={{ textAlign: "center", width: "100%", maxWidth: 340, animation: "fadeInUp 0.3s ease" }}>
+          <div style={{ fontSize: 60, marginBottom: 12 }}>{coinResult === "heads" ? "👑" : "🔵"}</div>
+          <div style={{ fontFamily: "Orbitron", fontSize: 20, color: "var(--gold)", marginBottom: 8 }}>{coinResult?.toUpperCase()}!</div>
+          <div style={{ color: won ? "var(--accent3)" : "var(--danger)", fontSize: 16, fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>
+            {won ? `${[team1, team2][caller]} WON THE TOSS! 🎉` : `${[team1, team2][1 - caller]} WON THE TOSS!`}
+          </div>
+          <div style={{ color: "var(--muted)", fontSize: 13, marginBottom: 24, fontFamily: "Barlow Condensed" }}>
+            {won ? `${[team1, team2][caller]} called ${callerChoice} — correct!` : `${[team1, team2][caller]} called ${callerChoice} — incorrect!`}
+          </div>
+          <div style={{ color: "var(--text)", fontSize: 14, fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>
+            {won ? [team1, team2][caller] : [team1, team2][1 - caller]} — CHOOSE TO:
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={() => handleChoice("bat")} style={{ flex: 1, padding: "16px 0", background: "rgba(0,229,255,0.1)", color: "var(--accent)", border: "2px solid var(--accent)", borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>🏏 BAT FIRST</button>
+            <button onClick={() => handleChoice("bowl")} style={{ flex: 1, padding: "16px 0", background: "rgba(255,107,53,0.1)", color: "var(--accent2)", border: "2px solid var(--accent2)", borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>🎳 BOWL FIRST</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+// ── LIVE MATCHES BROWSER ─────────────────────────────────────────────────────
+function LiveMatchesBrowser({ currentUser, onWatch, onClose }) {
+  const [liveMatches, setLiveMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const fetchLive = async () => {
+    try {
+      const { getDocs, collection, query, where, orderBy } = await import("firebase/firestore");
+      const q = query(
+        collection(db, "live_matches"),
+        where("status", "==", "live"),
+        orderBy("updatedAt", "desc")
+      );
+      const snap = await getDocs(q);
+      const matches = snap.docs
+        .map(d => ({ ...d.data(), docId: d.id }))
+        .filter(m => m.userId !== currentUser?.uid); // hide own match
+      setLiveMatches(matches);
+    } catch (e) {
+      console.log("Live fetch error", e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchLive();
+    const interval = setInterval(fetchLive, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const filtered = liveMatches.filter(m =>
+    !search ||
+    m.teams?.[0]?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    m.teams?.[1]?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    m.hostName?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "var(--bg)", zIndex: 400, display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg,#0a1520,#0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
+        <div>
+          <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2 }}>📡 LIVE MATCHES</div>
+          <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed", marginTop: 1 }}>Matches happening right now</div>
+        </div>
+        <button onClick={fetchLive} style={{ marginLeft: "auto", background: "none", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: "var(--rad)", padding: "5px 10px", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 11, cursor: "pointer", letterSpacing: 1 }}>↺ REFRESH</button>
+      </div>
+
+      {/* Search */}
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", background: "var(--bg3)", borderRadius: "var(--rad)", border: "1px solid var(--border)", padding: "8px 12px", gap: 8 }}>
+          <span style={{ color: "var(--muted)", fontSize: 14 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by team or player name..."
+            style={{ flex: 1, background: "none", border: "none", color: "var(--text)", fontFamily: "Barlow Condensed", fontSize: 15, outline: "none" }} />
+          {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 16 }}>✕</button>}
+        </div>
+      </div>
+
+      {/* Live indicator */}
+      <div style={{ padding: "6px 14px", background: "rgba(57,255,20,0.05)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <span style={{ fontSize: 8, color: "var(--accent3)" }} className="blink">●</span>
+        <span style={{ fontSize: 11, color: "var(--accent3)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1 }}>{filtered.length} LIVE {filtered.length === 1 ? "MATCH" : "MATCHES"} · Auto-refreshes every 8s</span>
+      </div>
+
+      {/* Matches list */}
+      <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
+        {loading ? (
+          <div style={{ textAlign: "center", color: "var(--muted)", marginTop: 60, fontFamily: "Barlow Condensed", fontSize: 15 }} className="blink">Loading live matches...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: "center", marginTop: 80 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏏</div>
+            <div style={{ color: "var(--muted)", fontFamily: "Barlow Condensed", fontSize: 15, marginBottom: 6 }}>
+              {search ? `No matches found for "${search}"` : "No live matches right now"}
+            </div>
+            <div style={{ color: "var(--muted)", fontSize: 12, fontFamily: "Barlow Condensed" }}>Check back when someone starts a match!</div>
+          </div>
+        ) : filtered.map(m => {
+          const bt = m.teams?.[m.batting];
+          const bw = m.teams?.[1 - m.batting];
+          const target = m.inning > 0 ? (m.teams?.[0]?.score + 1) : null;
+          const runsLeft = target ? Math.max(0, target - bt?.score) : null;
+          const ballsLeft = Math.max(0, (m.overs * 6) - (bt?.balls || 0));
+
+          return (
+            <div key={m.docId} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", padding: 16, marginBottom: 14, cursor: "pointer" }}
+              onClick={() => onWatch(m.docId)}>
+              {/* Live badge + host */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 8, color: "var(--accent3)" }} className="blink">●</span>
+                  <span style={{ fontSize: 10, color: "var(--accent3)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1 }}>LIVE</span>
+                  <span style={{ fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed" }}>· by {m.hostName || "Unknown"}</span>
+                </div>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {m.format && <span style={{ fontSize: 9, color: "var(--muted)", background: "var(--bg3)", padding: "2px 7px", borderRadius: 10, fontFamily: "Barlow Condensed", fontWeight: 700 }}>{m.format?.toUpperCase()}</span>}
+                  {m.ballType && <span style={{ fontSize: 9, color: "var(--muted)", background: "var(--bg3)", padding: "2px 7px", borderRadius: 10, fontFamily: "Barlow Condensed", fontWeight: 700 }}>{m.ballType}</span>}
+                </div>
+              </div>
+
+              {/* Score display */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                {m.teams?.map((t, i) => (
+                  <div key={i} style={{ flex: 1, background: m.batting === i ? "rgba(0,229,255,0.06)" : "var(--bg3)", borderRadius: "var(--rad)", padding: "10px 12px", border: `1px solid ${m.batting === i ? "var(--accent)" : "var(--border)"}` }}>
+                    <div style={{ fontSize: 10, color: m.batting === i ? "var(--accent)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>
+                      {t.name} {m.batting === i ? "🏏" : "🎳"}
+                    </div>
+                    <div style={{ fontFamily: "Orbitron", fontSize: 20, fontWeight: 900, color: "#fff" }}>
+                      {t.score}<span style={{ color: "var(--danger)", fontSize: 12 }}>/{t.wickets}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{overStr(t.balls || 0)} ov</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Chase info */}
+              {target && (
+                <div style={{ background: "rgba(255,107,53,0.08)", borderRadius: "var(--rad)", padding: "6px 10px", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 12, color: "var(--accent2)", fontFamily: "Barlow Condensed", fontWeight: 700 }}>Need {runsLeft} runs</span>
+                  <span style={{ fontSize: 12, color: "var(--muted)", fontFamily: "Barlow Condensed" }}>in {ballsLeft} balls · RRR {calcRRR(target, bt?.score||0, ballsLeft)}</span>
+                </div>
+              )}
+
+              {/* Current ball */}
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                {(bt?.overs?.[bt.overs.length - 1] || []).map((b, i) => <BallDot key={i} ball={b} />)}
+              </div>
+
+              {/* Watch button */}
+              <button style={{ width: "100%", padding: "9px 0", background: "rgba(0,229,255,0.08)", color: "var(--accent)", border: "1px solid rgba(0,229,255,0.3)", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 11, cursor: "pointer", letterSpacing: 1 }}>
+                📺 WATCH LIVE
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── LIVE SCORE VIEWER (for spectators) ───────────────────────────────────────
+function LiveScoreViewer({ matchId, onClose }) {
+  const [liveMatch, setLiveMatch] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!matchId) { setError("Invalid match ID"); setLoading(false); return; }
+    // Poll Firestore every 5 seconds for live updates
+    const fetchLive = async () => {
+      try {
+        const { getDoc, doc } = await import("firebase/firestore");
+        const snap = await getDoc(doc(db, "live_matches", matchId));
+        if (snap.exists()) {
+          setLiveMatch(snap.data());
+          setError("");
+        } else {
+          setError("Match not found or ended.");
+        }
+      } catch (e) { setError("Could not load live score."); }
+      setLoading(false);
+    };
+    fetchLive();
+    const interval = setInterval(fetchLive, 5000);
+    return () => clearInterval(interval);
+  }, [matchId]);
+
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 14, letterSpacing: 2 }} className="blink">LOADING LIVE SCORE...</div>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ fontSize: 40, marginBottom: 16 }}>😕</div>
+      <div style={{ fontFamily: "Barlow Condensed", color: "var(--muted)", fontSize: 16, marginBottom: 20 }}>{error}</div>
+      <button onClick={onClose} style={{ padding: "10px 24px", background: "var(--accent)", color: "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>GO BACK</button>
+    </div>
+  );
+
+  const bt = liveMatch?.teams?.[liveMatch.batting];
+  const target = liveMatch?.inning > 0 ? (liveMatch.teams[0].score + 1) : null;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "linear-gradient(135deg,#0a1520,#0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 22, cursor: "pointer" }}>←</button>
+        <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2 }}>📡 LIVE SCORE</div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--accent3)", fontFamily: "Barlow Condensed", fontWeight: 700 }}>
+          <span className="blink">●</span> LIVE · updates every 5s
+        </div>
+      </div>
+      <div style={{ padding: 16 }}>
+        {/* Score */}
+        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad2)", padding: 20, marginBottom: 14, textAlign: "center" }}>
+          <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 11, letterSpacing: 2, marginBottom: 4 }}>{bt?.name} BATTING</div>
+          <div style={{ fontFamily: "Orbitron", fontSize: 48, fontWeight: 900, color: "#fff" }}>{bt?.score}<span style={{ color: "var(--danger)", fontSize: 24 }}>/{bt?.wickets}</span></div>
+          <div style={{ color: "var(--muted)", fontSize: 14, marginTop: 4 }}>{overStr(bt?.balls||0)} overs · RR {calcRR(bt?.score||0, bt?.balls||0)}</div>
+          {target && <div style={{ color: "var(--accent2)", fontSize: 16, fontWeight: 700, marginTop: 8, fontFamily: "Barlow Condensed" }}>Need {Math.max(0,target-bt.score)} in {Math.max(0,(liveMatch.overs*6)-bt.balls)} balls · RRR {calcRRR(target,bt.score||0,Math.max(0,(liveMatch.overs*6)-bt.balls))}</div>}
+        </div>
+
+        {/* Current batters */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          {[{label:"ON STRIKE",p:liveMatch?.striker,color:"var(--accent)"},{label:"NON-STRIKE",p:liveMatch?.nonStriker,color:"var(--muted)"}].map(({label,p,color},i)=>(
+            <div key={i} style={{ flex: 1, background: "var(--bg3)", borderRadius: "var(--rad)", padding: "10px 12px", border: `1px solid ${color}44` }}>
+              <div style={{ fontSize: 9, color, fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1, marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 14, color: "var(--text)", fontFamily: "Rajdhani", fontWeight: 700 }}>{p?.name||"—"}</div>
+              <div style={{ fontSize: 12, color, fontWeight: 700 }}>{p?.runs||0}<span style={{ color: "var(--muted)", fontWeight: 400 }}>({p?.balls||0}b)</span></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Current over */}
+        <div style={{ background: "var(--bg3)", borderRadius: "var(--rad)", padding: "10px 14px", marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>THIS OVER</div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {(bt?.overs?.[bt.overs.length-1]||[]).map((b,i)=><BallDot key={i} ball={b}/>)}
+          </div>
+        </div>
+
+        {/* Both teams summary */}
+        <div style={{ display: "flex", gap: 10 }}>
+          {liveMatch?.teams?.map((t,i)=>(
+            <div key={i} style={{ flex: 1, background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--rad)", padding: "10px 12px" }}>
+              <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1 }}>{t.name}</div>
+              <div style={{ fontFamily: "Orbitron", fontSize: 18, color: liveMatch.batting===i?"var(--accent)":"var(--text)", fontWeight: 700, marginTop: 3 }}>{t.score}/{t.wickets}</div>
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>{overStr(t.balls||0)} ov</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SHARE SCORECARD ───────────────────────────────────────────────────────────
+function ShareScorecard({ match, onClose }) {
+  const cardRef = useRef(null);
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [t0, t1] = match.teams || [{}, {}];
+
+  const doShare = async () => {
+    setSharing(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: "#080c10",
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
+      const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+      const file = new File([blob], "cricscan-scorecard.png", { type: "image/png" });
+
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `${t0?.name} vs ${t1?.name} - CricScan`,
+          text: `${t0?.name} ${t0?.score}/${t0?.wickets} vs ${t1?.name} ${t1?.score}/${t1?.wickets}`,
+          files: [file],
+        });
+        setShared(true);
+      } else {
+        // Fallback: download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "cricscan-scorecard.png"; a.click();
+        URL.revokeObjectURL(url);
+        setShared(true);
+      }
+    } catch (e) { console.log("Share failed", e); }
+    setSharing(false);
+  };
+
+  const copyLink = async () => {
+    const text = `🏏 CricScan Match Result\n${t0?.name}: ${t0?.score}/${t0?.wickets} (${overStr(t0?.balls||0)} ov)\n${t1?.name}: ${t1?.score}/${t1?.wickets} (${overStr(t1?.balls||0)} ov)\n\nScored on CricScan - cricscan-advaith.vercel.app`;
+    try { await navigator.clipboard.writeText(text); setShared(true); } catch {}
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ width: "100%", maxWidth: 380 }}>
+        <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2, marginBottom: 14, textAlign: "center" }}>SHARE SCORECARD</div>
+
+        {/* Scorecard preview card */}
+        <div ref={cardRef} style={{ background: "linear-gradient(135deg,#0a1f30,#080c10)", border: "1px solid var(--border)", borderRadius: 16, padding: 20, marginBottom: 16 }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ fontFamily: "Orbitron", fontSize: 18, color: "var(--accent)", letterSpacing: 3, marginBottom: 4 }}>🏏 CRICSCAN</div>
+            {match.toss && <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed", letterSpacing: 1 }}>🪙 {match.toss}</div>}
+          </div>
+
+          {/* Scores */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            {[t0, t1].map((t, i) => (
+              <div key={i} style={{ flex: 1, background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "12px 10px", textAlign: "center", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>{t?.name}</div>
+                <div style={{ fontFamily: "Orbitron", fontSize: 24, fontWeight: 900, color: "#fff" }}>{t?.score}<span style={{ color: "var(--danger)", fontSize: 14 }}>/{t?.wickets}</span></div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>{overStr(t?.balls||0)} ov · RR {t?.balls>0?((t.score/t.balls)*6).toFixed(2):"0.00"}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Top performers */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed", letterSpacing: 2, marginBottom: 6 }}>TOP PERFORMERS</div>
+            {[...t0?.players||[], ...t1?.players||[]].sort((a,b)=>(b.runs||0)-(a.runs||0)).slice(0,2).map((p,i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <span style={{ fontSize: 12, color: "var(--text)", fontFamily: "Barlow Condensed" }}>🏏 {p.name}</span>
+                <span style={{ fontSize: 12, color: "var(--accent)", fontFamily: "Barlow Condensed", fontWeight: 700 }}>{p.runs}({p.balls}b)</span>
+              </div>
+            ))}
+            {[...t0?.players||[], ...t1?.players||[]].filter(p=>(p.wickets||0)>0).sort((a,b)=>(b.wickets||0)-(a.wickets||0)).slice(0,1).map((p,i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                <span style={{ fontSize: 12, color: "var(--text)", fontFamily: "Barlow Condensed" }}>🎳 {p.name}</span>
+                <span style={{ fontSize: 12, color: "var(--accent2)", fontFamily: "Barlow Condensed", fontWeight: 700 }}>{p.wickets}w/{p.runsConceded}r</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div style={{ textAlign: "center", fontSize: 9, color: "rgba(255,255,255,0.2)", fontFamily: "Barlow Condensed", letterSpacing: 2 }}>cricscan-advaith.vercel.app</div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+          <button onClick={doShare} disabled={sharing} style={{ flex: 1, padding: "13px 0", background: sharing ? "var(--bg3)" : "linear-gradient(135deg,var(--accent),#0099bb)", color: sharing ? "var(--muted)" : "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 12, cursor: sharing ? "default" : "pointer", letterSpacing: 1 }}>
+            {sharing ? "..." : shared ? "✓ SHARED!" : "📤 SHARE"}
+          </button>
+          <button onClick={copyLink} style={{ flex: 1, padding: "13px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            📋 COPY TEXT
+          </button>
+        </div>
+        <button onClick={onClose} style={{ width: "100%", padding: "11px 0", background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>CLOSE</button>
+      </div>
+    </div>
+  );
+}
+
+// ── RULES SCREEN ──────────────────────────────────────────────────────────────
+const CRICKET_RULES = [
+  { cat: "Basic Rules", icon: "📋", rules: [
+    { title: "Objective", text: "The batting team scores runs while the fielding team tries to dismiss batters. The team with more runs wins." },
+    { title: "Players", text: "Each team has 11 players. One team bats while the other fields and bowls." },
+    { title: "Innings", text: "In limited overs cricket, each team bats once. In Test cricket, each team bats twice." },
+    { title: "Winning", text: "The team that scores more runs wins. In limited overs, if scores are tied, a Super Over or DLS method decides." },
+  ]},
+  { cat: "Batting Rules", icon: "🏏", rules: [
+    { title: "Scoring Runs", text: "Batters score by running between wickets. Each completed run scores 1 point." },
+    { title: "Boundaries", text: "Hitting the ball to the boundary scores 4 runs. Clearing the boundary on the full scores 6 runs." },
+    { title: "Running Between Wickets", text: "Both batters must cross and ground their bat beyond the popping crease to complete a run." },
+    { title: "No Ball Batting", text: "A batter cannot be dismissed off a No Ball except by run out, handling the ball, or obstructing the field." },
+    { title: "Free Hit", text: "In limited overs cricket, a No Ball results in a Free Hit — the batter can only be dismissed by run out on the next delivery." },
+  ]},
+  { cat: "Bowling Rules", icon: "🎳", rules: [
+    { title: "Over", text: "An over consists of 6 legal deliveries bowled by the same bowler from one end." },
+    { title: "Consecutive Overs", text: "The same bowler cannot bowl consecutive overs." },
+    { title: "No Ball", text: "A No Ball is called when the bowler oversteps the crease, bowls a full toss above waist height, or bowls with a dangerous action." },
+    { title: "Wide Ball", text: "A delivery is called Wide if it passes too far from the batter's reach or above the batter's head (unless aimed at the body)." },
+    { title: "Bouncers", text: "In Test cricket, 2 bouncers per over are allowed. In ODIs and T20s, 1 bouncer per over is allowed." },
+    { title: "Powerplay", text: "In ODIs, the first 10 overs are mandatory powerplay with only 2 fielders outside the ring. T20s have a 6-over powerplay." },
+  ]},
+  { cat: "Fielding Rules", icon: "🧤", rules: [
+    { title: "Fielding Restrictions", text: "In limited overs cricket, no more than 4 fielders can be outside the 30-yard circle outside of powerplay overs." },
+    { title: "Wicketkeeper", text: "The wicketkeeper must stay behind the stumps until the ball passes the bat or the batter leaves the crease." },
+    { title: "Dropped Catch", text: "If a catch is dropped, the ball remains in play. A batter cannot be caught out if the ball bounces before being caught." },
+    { title: "Boundary Catch", text: "A fielder taking a catch must remain inside the boundary. If a fielder steps on or over the boundary while taking a catch, it counts as a Six." },
+  ]},
+  { cat: "Dismissals", icon: "🔴", rules: [
+    { title: "Bowled", text: "The batter is out if the ball hits the stumps and dislodges a bail." },
+    { title: "Caught", text: "The batter is out if a fielder catches the ball before it touches the ground." },
+    { title: "LBW", text: "Out LBW if the ball would have hit the stumps but struck the batter's body first, with no shot played or the ball pitching in line." },
+    { title: "Run Out", text: "A batter is run out if, while running, the fielding side breaks the stumps with the ball while the batter is out of their crease." },
+    { title: "Stumped", text: "The wicketkeeper can stump a batter who is out of their crease while playing a shot, by breaking the stumps with the ball." },
+    { title: "Hit Wicket", text: "A batter is out if they dislodge a bail with their bat, body or clothing while playing a shot or setting off for a run." },
+    { title: "Handled Ball / Obstructing Field", text: "A batter is out if they deliberately handle the ball or obstruct a fielder." },
+    { title: "Timed Out", text: "An incoming batter must be ready to face the next ball within 3 minutes, otherwise they can be given out timed out." },
+  ]},
+  { cat: "Extras", icon: "➕", rules: [
+    { title: "No Ball", text: "1 extra run + the delivery must be rebowled. Batter cannot be dismissed (except run out)." },
+    { title: "Wide", text: "1 extra run + the delivery must be rebowled. Wides count towards the bowling figures." },
+    { title: "Bye", text: "Runs scored when the ball misses both bat and body and the batters run. Charged to extras, not the bowler." },
+    { title: "Leg Bye", text: "Runs scored when the ball hits the batter's body (not the bat) and they run. Must have attempted a shot or avoided being hit." },
+    { title: "Penalty Runs", text: "5 penalty runs are awarded for deliberate time wasting, damaging the pitch, or ball tampering." },
+  ]},
+  { cat: "DLS Method", icon: "🌧", rules: [
+    { title: "What is DLS?", text: "The Duckworth-Lewis-Stern (DLS) method recalculates target scores in rain-affected matches based on overs remaining and wickets in hand." },
+    { title: "Minimum Overs", text: "In ODIs, a minimum of 20 overs per side are needed for a result. In T20s, a minimum of 5 overs per side." },
+    { title: "Revised Target", text: "If the chasing team's innings is interrupted, their target is revised using the DLS par score at the time of interruption." },
+  ]},
+  { cat: "Test Cricket", icon: "📋", rules: [
+    { title: "Duration", text: "A Test match is played over a maximum of 5 days, with 90 overs scheduled per day." },
+    { title: "Innings", text: "Each team has 2 innings. A team can be asked to follow-on if they are 200+ runs behind (2-3 day Tests: 150, 1-day: 75)." },
+    { title: "Draw", text: "If neither team wins after 5 days, the match is a draw." },
+    { title: "Stumps", text: "Play stops for the day when the umpires call Stumps, usually after 90 overs or at the scheduled close of play." },
+    { title: "Day/Night Tests", text: "Day/Night Tests use a pink ball and have a dinner break instead of tea." },
+    { title: "New Ball", text: "The fielding team can take a new ball after 80 overs in Tests." },
+  ]},
+  { cat: "Umpiring", icon: "⚖️", rules: [
+    { title: "Two Umpires", text: "Two on-field umpires officiate in all matches. In international cricket, a third umpire reviews decisions using TV replays." },
+    { title: "DRS", text: "Decision Review System (DRS) allows each team 2 reviews per innings in Tests (1 in ODIs/T20s) to challenge on-field decisions." },
+    { title: "Ball Change", text: "The batting team can request a new ball if the ball is lost or becomes unfit for play." },
+    { title: "Bad Light", text: "Umpires can offer batters the option to go off for bad light if conditions are unsafe for batting." },
+  ]},
+];
+
+function RulesScreen({ onBack }) {
+  const [search, setSearch] = useState("");
+  const [selectedCat, setSelectedCat] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+
+  const filtered = CRICKET_RULES.map(cat => ({
+    ...cat,
+    rules: cat.rules.filter(r =>
+      !search || r.title.toLowerCase().includes(search.toLowerCase()) || r.text.toLowerCase().includes(search.toLowerCase())
+    )
+  })).filter(cat => (!selectedCat || cat.cat === selectedCat) && cat.rules.length > 0);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "linear-gradient(135deg,#0a1520,#0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
+        <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2 }}>📖 CRICKET RULES</div>
+        <div style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed" }}>BCCI / ICC</div>
+      </div>
+
+      {/* Search */}
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", background: "var(--bg3)", borderRadius: "var(--rad)", border: "1px solid var(--border)", padding: "8px 12px", gap: 8 }}>
+          <span style={{ color: "var(--muted)", fontSize: 14 }}>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search rules..."
+            style={{ flex: 1, background: "none", border: "none", color: "var(--text)", fontFamily: "Barlow Condensed", fontSize: 15, outline: "none" }} />
+          {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 16 }}>✕</button>}
+        </div>
+      </div>
+
+      {/* Category pills */}
+      <div style={{ display: "flex", gap: 6, padding: "8px 14px", overflowX: "auto", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <button onClick={() => setSelectedCat(null)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${!selectedCat ? "var(--accent)" : "var(--border)"}`, background: !selectedCat ? "rgba(0,229,255,0.1)" : "var(--bg3)", color: !selectedCat ? "var(--accent)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: 1 }}>ALL</button>
+        {CRICKET_RULES.map(cat => (
+          <button key={cat.cat} onClick={() => setSelectedCat(selectedCat === cat.cat ? null : cat.cat)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${selectedCat === cat.cat ? "var(--accent2)" : "var(--border)"}`, background: selectedCat === cat.cat ? "rgba(255,107,53,0.1)" : "var(--bg3)", color: selectedCat === cat.cat ? "var(--accent2)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: 1 }}>{cat.icon} {cat.cat}</button>
+        ))}
+      </div>
+
+      {/* Rules list */}
+      <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", color: "var(--muted)", marginTop: 60, fontFamily: "Barlow Condensed", fontSize: 15 }}>No rules found for "{search}"</div>
+        )}
+        {filtered.map(cat => (
+          <div key={cat.cat} style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 2, fontSize: 12, color: "var(--accent2)", marginBottom: 8 }}>{cat.icon} {cat.cat.toUpperCase()}</div>
+            {cat.rules.map((rule, i) => (
+              <div key={i} onClick={() => setExpanded(expanded === `${cat.cat}-${i}` ? null : `${cat.cat}-${i}`)}
+                style={{ background: "var(--card)", border: `1px solid ${expanded === `${cat.cat}-${i}` ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad)", padding: "10px 14px", marginBottom: 6, cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 14, color: expanded === `${cat.cat}-${i}` ? "var(--accent)" : "var(--text)" }}>{rule.title}</div>
+                  <div style={{ color: "var(--muted)", fontSize: 12 }}>{expanded === `${cat.cat}-${i}` ? "▲" : "▼"}</div>
+                </div>
+                {expanded === `${cat.cat}-${i}` && (
+                  <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 8, lineHeight: 1.6, fontFamily: "Barlow Condensed" }}>{rule.text}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── SETUP SCREEN ──────────────────────────────────────────────────────────────
 function SetupScreen({onStart}){
   const [step,setStep]=useState(0);
@@ -215,8 +796,9 @@ function SetupScreen({onStart}){
   const [captain2,setCaptain2]=useState(0);
   const [wk1,setWk1]=useState(6);
   const [wk2,setWk2]=useState(6);
-  const [tossWinner,setTossWinner]=useState(0);
-  const [tossChoice,setTossChoice]=useState("bat");
+  const [tossResult,setTossResult]=useState(null);
+  const [showToss,setShowToss]=useState(false);
+  const [isPublic,setIsPublic]=useState(true);
   const [tab,setTab]=useState(0);
 
   // Load saved data on mount
@@ -361,7 +943,20 @@ function SetupScreen({onStart}){
                 START MATCH ▶
               </button>
             </div>
-            <button onClick={clearSaved} style={{width:"100%",padding:"8px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
+            {/* Privacy toggle */}
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:14,marginBottom:12}}>
+          <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>MATCH VISIBILITY</div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setIsPublic(true)} style={{flex:1,padding:"12px 0",background:isPublic?"rgba(57,255,20,0.1)":"var(--bg3)",color:isPublic?"var(--accent3)":"var(--muted)",border:`2px solid ${isPublic?"var(--accent3)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>
+              📡 PUBLIC<br/><span style={{fontSize:9,fontWeight:400,letterSpacing:0}}>Others can watch live</span>
+            </button>
+            <button onClick={()=>setIsPublic(false)} style={{flex:1,padding:"12px 0",background:!isPublic?"rgba(255,61,90,0.1)":"var(--bg3)",color:!isPublic?"var(--danger)":"var(--muted)",border:`2px solid ${!isPublic?"var(--danger)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>
+              🔒 PRIVATE<br/><span style={{fontSize:9,fontWeight:400,letterSpacing:0}}>Only visible to you</span>
+            </button>
+          </div>
+        </div>
+
+        <button onClick={clearSaved} style={{width:"100%",padding:"8px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
           </div>
         )}
       </div>
@@ -575,6 +1170,10 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             <span style={{fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.ballType?.toUpperCase()}</span>
             <span style={{fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.format==="test"?`TEST INN ${match.inning+1}`:`${match.overs}ov`}</span>
+          {match.isPublic
+            ? <span style={{fontSize:9,color:"var(--accent3)",background:"rgba(57,255,20,0.1)",padding:"2px 8px",borderRadius:10,letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700}}>📡 PUBLIC</span>
+            : <span style={{fontSize:9,color:"var(--danger)",background:"rgba(255,61,90,0.1)",padding:"2px 8px",borderRadius:10,letterSpacing:1,fontFamily:"Barlow Condensed",fontWeight:700}}>🔒 PRIVATE</span>
+          }
           </div>
         </div>
 
@@ -731,6 +1330,16 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
               <button onClick={()=>{onEndInnings();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(255,107,53,0.1)",color:"var(--accent2)",border:"1px solid rgba(255,107,53,0.3)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>📋 DECLARE INNINGS</button>
               <button onClick={()=>{onManualStrikeSwap();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(0,229,255,0.06)",color:"var(--accent)",border:"1px solid rgba(0,229,255,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>🔄 SWAP STRIKE</button>
+              {match?.isPublic
+                ? <button onClick={()=>{
+                    const id=match?.matchId||"";
+                    const link=`${window.location.origin}?live=${id}`;
+                    navigator.clipboard?.writeText(link).catch(()=>{});
+                    navigator.share?.({title:"Watch Live on CricScan",text:"Follow the live score!",url:link}).catch(()=>{});
+                    setShowMenu(false);
+                  }} style={{padding:"10px 0",background:"rgba(57,255,20,0.06)",color:"var(--accent3)",border:"1px solid rgba(57,255,20,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1,gridColumn:"span 2"}}>📡 SHARE LIVE LINK</button>
+                : <div style={{padding:"10px 0",background:"rgba(255,61,90,0.05)",color:"rgba(255,61,90,0.4)",border:"1px solid rgba(255,61,90,0.1)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,textAlign:"center",gridColumn:"span 2"}}>🔒 PRIVATE MATCH · Not visible to others</div>
+              }
             </div>
             {/* Test match breaks — only show in test format */}
             {match.format==="test"&&(
@@ -967,7 +1576,7 @@ function ScorecardScreen({match,onBack}){
 }
 
 // ── RESULT SCREEN ─────────────────────────────────────────────────────────────
-function ResultScreen({match,onNewMatch}){
+function ResultScreen({match,onNewMatch,onShare}){
   const [tab,setTab]=useState("awards");
   if(!match||!match.teams||!match.teams[0]||!match.teams[1]) return null;
   const [t0,t1]=match.teams;
@@ -1134,7 +1743,10 @@ function ResultScreen({match,onNewMatch}){
           </div>
         ))}
 
-        <button onClick={onNewMatch} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
+        <div style={{display:"flex",gap:10,marginBottom:0}}>
+        <button onClick={onShare} style={{flex:1,padding:"13px 0",background:"rgba(0,229,255,0.08)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:11,cursor:"pointer",letterSpacing:1}}>📤 SHARE</button>
+        <button onClick={onNewMatch} style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
+      </div>
       </div>
     </div>
   );
@@ -1219,7 +1831,18 @@ export default function App(){
   const [historyMatch,setHistoryMatch]=useState(null);
   const [stumpsType,setStumpsType]=useState(null);
   const [showLeaveConfirm,setShowLeaveConfirm]=useState(false);
+  const [showShare,setShowShare]=useState(false);
+  const [showLiveViewer,setShowLiveViewer]=useState(false);
+  const [liveViewId,setLiveViewId]=useState("");
+  const [showLiveBrowser,setShowLiveBrowser]=useState(false);
   const [showBatterChange,setShowBatterChange]=useState(false);
+
+  // Check for live score URL param
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const liveId=params.get("live");
+    if(liveId){setLiveViewId(liveId);setShowLiveViewer(true);}
+  },[]);
 
   // Auth state listener
   useEffect(()=>{
@@ -1249,21 +1872,21 @@ export default function App(){
     }
   },[match, user]);
 
-  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,tossWinner,tossChoice})=>{
+  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,tossWinner,tossChoice,tossMsg,battingFirst:battingFirst_param,isPublic=true})=>{
     const t0=mkTeam(team1,players1);const t1=mkTeam(team2,players2);
     if(t0.players[captain1])t0.players[captain1].isCaptain=true;
     if(t0.players[wk1])t0.players[wk1].isWK=true;
     if(t1.players[captain2])t1.players[captain2].isCaptain=true;
     if(t1.players[wk2])t1.players[wk2].isWK=true;
-    const battingFirst=tossChoice==="bat"?tossWinner:1-tossWinner;
-    const bowlingFirst=1-battingFirst;
-    const tossMsg=`${[team1,team2][tossWinner]} won the toss and elected to ${tossChoice} first`;
+    const bf = battingFirst_param != null ? battingFirst_param : (tossChoice==="bat"?tossWinner:1-tossWinner);
+    const bowlingFirst=1-bf;
+    const finalTossMsg = tossMsg || `${[team1,team2][tossWinner]} won the toss and elected to ${tossChoice} first`;
     const newMatch={teams:[t0,t1],overs,format,ballType,
-      batting:battingFirst,bowling:bowlingFirst,inning:0,
-      toss:tossMsg,
+      batting:bf,bowling:bowlingFirst,inning:0,
+      toss:finalTossMsg,
       striker:{...t0.players[0]},nonStriker:{...t0.players[1]},strikerIdx:0,nonStrikerIdx:1,nextBatterIdx:2,
       currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[],
-      matchId:"match_"+Date.now()};
+      matchId:"match_"+Date.now(),isPublic};
     setMatch(newMatch);
     // Show batter/bowler selector at start
     setShowBatterChange(true);
@@ -1491,8 +2114,8 @@ export default function App(){
           <div style={{color:"var(--muted)",fontSize:13,fontFamily:"Barlow Condensed",letterSpacing:2}}>LOADING...</div>
         </div>
       )}
-      {!authLoading&&screen==="login"&&<LoginScreen onLogin={()=>{}}/>}
-      {!authLoading&&screen==="splash"&&<SplashScreen onStart={()=>setScreen("setup")}/>}
+      {!authLoading&&screen==="splash"&&<SplashScreen onStart={()=>setScreen(user?"setup":"login")} onSignOut={handleSignOut} user={user}/>}
+      {!authLoading&&screen==="login"&&<LoginScreen onLogin={()=>setScreen("setup")}/>}
       {!authLoading&&screen==="setup"&&(
         <div style={{position:"relative"}}>
           <div style={{position:"absolute",top:16,right:16,zIndex:10,display:"flex",gap:6}}>
@@ -1509,6 +2132,7 @@ export default function App(){
             <NavBtn active label="SCORE"/>
             <NavBtn onClick={()=>setScreen("scorecard")} label="SCORECARD"/>
             <NavBtn onClick={()=>setScreen("history")} label="HISTORY"/>
+            <NavBtn onClick={()=>setScreen("rules")} label="RULES"/>
             {user&&<div style={{padding:"0 8px",fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",borderLeft:"1px solid var(--border)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:80}}>{user.displayName||user.email?.split("@")[0]}</div>}
           </div>
           <ScoringScreen match={match} onBall={handleBall} onWicket={handleWicket} onUndo={handleUndo} onEndInnings={handleEndInnings} onStumps={t=>setStumpsType(t)} onManualStrikeSwap={doStrikeSwap} onLeave={()=>setShowLeaveConfirm(true)} onChangePlayer={handleChangePlayer}/>
@@ -1549,6 +2173,9 @@ export default function App(){
       {screen==="result"&&match&&<ResultScreen match={{...match,inningsHistory:match.inningsHistory||[]}} onNewMatch={handleNewMatch}/>}
       {screen==="history"&&<HistoryScreen onBack={()=>setScreen(match?"scoring":"setup")} onView={r=>{setHistoryMatch(r);setScreen("historycard");}} user={user}/>}
       {screen==="historycard"&&historyMatch&&<ScorecardScreen match={{teams:historyMatch.teams,batting:0,bowling:1,format:historyMatch.format,ballType:historyMatch.ballType}} onBack={()=>setScreen("history")}/>}
+      {screen==="rules"&&<RulesScreen onBack={()=>setScreen(match?"scoring":"setup")}/>}
+      {showLiveViewer&&<LiveScoreViewer matchId={liveViewId} onClose={()=>setShowLiveViewer(false)}/>}
+      {showLiveBrowser&&<LiveMatchesBrowser currentUser={user} onWatch={id=>{setLiveViewId(id);setShowLiveViewer(true);setShowLiveBrowser(false);}} onClose={()=>setShowLiveBrowser(false)}/>}
     </>
   );
 }
