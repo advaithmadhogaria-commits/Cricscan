@@ -315,22 +315,32 @@ function LiveMatchesBrowser({ currentUser, onWatch, onClose }) {
   const [liveMatches, setLiveMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   const fetchLive = async () => {
     try {
-      const { getDocs, collection, query, where, orderBy } = await import("firebase/firestore");
-      const q = query(
-        collection(db, "live_matches"),
-        where("status", "==", "live"),
-        orderBy("updatedAt", "desc")
-      );
+      const { getDocs, collection, query, where } = await import("firebase/firestore");
+      // Simple query - no compound index needed
+      const q = query(collection(db, "live_matches"), where("status", "==", "live"));
       const snap = await getDocs(q);
       const matches = snap.docs
         .map(d => ({ ...d.data(), docId: d.id }))
-        .filter(m => m.userId !== currentUser?.uid); // hide own match
+        // Sort client-side by most recent
+        .sort((a,b) => (b.updatedAt||"").localeCompare(a.updatedAt||""));
       setLiveMatches(matches);
+      setError("");
     } catch (e) {
       console.log("Live fetch error", e);
+      // Fallback: try without any filter
+      try {
+        const { getDocs, collection } = await import("firebase/firestore");
+        const snap = await getDocs(collection(db, "live_matches"));
+        const matches = snap.docs
+          .map(d => ({ ...d.data(), docId: d.id }))
+          .filter(m => m.status === "live")
+          .sort((a,b) => (b.updatedAt||"").localeCompare(a.updatedAt||""));
+        setLiveMatches(matches);
+      } catch(e2) { console.log("Fallback failed", e2); }
     }
     setLoading(false);
   };
@@ -792,6 +802,7 @@ function SetupScreen({onStart}){
   const [ballType,setBallType]=useState("tennis");
   const [players1,setPlayers1]=useState(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
   const [players2,setPlayers2]=useState(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
+  // numPlayers controls how many inputs show AND how many are used in match
   const [captain1,setCaptain1]=useState(0);
   const [captain2,setCaptain2]=useState(0);
   const [wk1,setWk1]=useState(6);
@@ -799,6 +810,7 @@ function SetupScreen({onStart}){
   const [tossResult,setTossResult]=useState(null);
   const [showToss,setShowToss]=useState(false);
   const [isPublic,setIsPublic]=useState(true);
+  const [numPlayers,setNumPlayers]=useState(11);
   const [tab,setTab]=useState(0);
 
   // Load saved data
@@ -884,13 +896,23 @@ function SetupScreen({onStart}){
               {format==="test"&&<div style={{padding:"8px 12px",background:"rgba(0,229,255,0.05)",borderRadius:"var(--rad)",color:"var(--muted)",fontSize:12}}>4 innings · Unlimited overs · Stumps/Tea/Lunch available</div>}
             </div>
 
-            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:20}}>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
               <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>BALL TYPE</div>
               <div style={{display:"flex",gap:8}}>
                 {[["tennis","🎾 Tennis"],["rubber","⚫ Rubber"],["hard","🔴 Hard Ball"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setBallType(v)} style={{flex:1,padding:"10px 0",background:ballType===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:ballType===v?"var(--accent)":"var(--muted)",border:`2px solid ${ballType===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{l}</button>
                 ))}
               </div>
+            </div>
+
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:20}}>
+              <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>PLAYERS PER TEAM</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[2,3,4,5,6,7,8,9,10,11].map(n=>(
+                  <button key={n} onClick={()=>setNumPlayers(n)} style={{flex:1,minWidth:28,padding:"9px 0",background:numPlayers===n?"var(--accent)":"var(--bg3)",color:numPlayers===n?"#000":"var(--text)",border:`1px solid ${numPlayers===n?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:13,cursor:"pointer"}}>{n}</button>
+                ))}
+              </div>
+              <div style={{fontSize:10,color:"var(--muted)",marginTop:6,fontFamily:"Barlow Condensed"}}>Innings ends when {numPlayers-1} wickets fall</div>
             </div>
 
             <button onClick={()=>setStep(1)} style={{width:"100%",padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>
@@ -910,7 +932,7 @@ function SetupScreen({onStart}){
                 {[team1,team2].map((t,i)=>(<button key={i} onClick={()=>setTab(i)} style={{flex:1,padding:"8px 0",background:tab===i?"var(--accent2)":"var(--bg3)",color:tab===i?"#fff":"var(--muted)",border:`1px solid ${tab===i?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>{t}</button>))}
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                {(tab===0?players1:players2).map((p,i)=>{
+                {(tab===0?players1:players2).slice(0,numPlayers).map((p,i)=>{
                   const isCap=tab===0?captain1===i:captain2===i;
                   const isWk=tab===0?wk1===i:wk2===i;
                   const setCap=tab===0?setCaptain1:setCaptain2;
@@ -967,13 +989,14 @@ function SetupScreen({onStart}){
               <button onClick={()=>setStep(0)} style={{flex:1,padding:"13px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>← BACK</button>
               <button onClick={()=>onStart({
                   team1,team2,overs:format==="test"?9999:overs,format,ballType,
-                  players1:players1.filter(Boolean),players2:players2.filter(Boolean),
+                  players1:players1.slice(0,numPlayers).filter(Boolean),players2:players2.slice(0,numPlayers).filter(Boolean),
                   captain1,captain2,wk1,wk2,
                   tossWinner:tossResult?.tossWinner??0,
                   tossChoice:tossResult?.tossChoice??"bat",
                   tossMsg:tossResult?.tossMsg??"",
                   battingFirst:tossResult?.battingFirst??0,
-                  isPublic
+                  isPublic,
+                  numPlayers
                 })}
                 style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer",animation:"pulse-border 2s infinite"}}>
                 START MATCH ▶
@@ -1935,12 +1958,38 @@ export default function App(){
 
   // Auto-save live match to Firebase on every change
   useEffect(()=>{
-    if(match&&!match.ended&&user){
+    if(match&&!match.ended){
       saveLiveMatch(match);
+      // Publish to Firestore for live spectators (public matches only)
+      if(user&&match.matchId&&match.isPublic){
+        import("firebase/firestore").then(({setDoc,doc:fsDoc})=>{
+          setDoc(fsDoc(db,"live_matches",match.matchId),{
+            teams:[
+              {name:match.teams[0]?.name||"",score:match.teams[0]?.score||0,wickets:match.teams[0]?.wickets||0,balls:match.teams[0]?.balls||0,
+               overs:match.teams[0]?.overs?.slice(-1)||[],
+               players:(match.teams[0]?.players||[]).map(p=>({name:p.name||"",runs:p.runs||0,balls:p.balls||0,dismissed:!!p.dismissed,wickets:p.wickets||0,ballsBowled:p.ballsBowled||0,runsConceded:p.runsConceded||0}))},
+              {name:match.teams[1]?.name||"",score:match.teams[1]?.score||0,wickets:match.teams[1]?.wickets||0,balls:match.teams[1]?.balls||0,
+               overs:match.teams[1]?.overs?.slice(-1)||[],
+               players:(match.teams[1]?.players||[]).map(p=>({name:p.name||"",runs:p.runs||0,balls:p.balls||0,dismissed:!!p.dismissed,wickets:p.wickets||0,ballsBowled:p.ballsBowled||0,runsConceded:p.runsConceded||0}))}
+            ],
+            batting:match.batting,bowling:match.bowling,
+            inning:match.inning||0,overs:match.overs||10,
+            format:match.format||"limited",ballType:match.ballType||"tennis",
+            striker:{name:match.striker?.name||"",runs:match.striker?.runs||0,balls:match.striker?.balls||0},
+            nonStriker:{name:match.nonStriker?.name||"",runs:match.nonStriker?.runs||0,balls:match.nonStriker?.balls||0},
+            currentBowler:{name:match.currentBowler?.name||"",wickets:match.currentBowler?.wickets||0,runsConceded:match.currentBowler?.runsConceded||0,ballsBowled:match.currentBowler?.ballsBowled||0},
+            toss:match.toss||"",
+            userId:user.uid,
+            hostName:user.displayName||user.email?.split("@")[0]||"Player",
+            status:"live",
+            updatedAt:new Date().toISOString()
+          }).catch(e=>console.log("Publish error:",e));
+        }).catch(()=>{});
+      }
     }
   },[match, user]);
 
-  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,tossWinner,tossChoice,tossMsg,battingFirst:battingFirst_param,isPublic=true})=>{
+  const startMatch=useCallback(({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,tossWinner,tossChoice,tossMsg,battingFirst:battingFirst_param,isPublic=true,numPlayers=11})=>{
     const t0=mkTeam(team1,players1);const t1=mkTeam(team2,players2);
     if(t0.players[captain1])t0.players[captain1].isCaptain=true;
     if(t0.players[wk1])t0.players[wk1].isWK=true;
@@ -1954,7 +2003,7 @@ export default function App(){
       toss:finalTossMsg,
       striker:{...t0.players[0]},nonStriker:{...t0.players[1]},strikerIdx:0,nonStrikerIdx:1,nextBatterIdx:2,
       currentBowler:{...t1.players[0]},currentBowlerIdx:0,history:[],zones:[],
-      matchId:"match_"+Date.now(),isPublic};
+      matchId:"match_"+Date.now(),isPublic,numPlayers};
     setMatch(newMatch);
     setScreen("camera");
   },[]);
@@ -2007,26 +2056,45 @@ export default function App(){
   const confirmWicket=({outIdx,dismissal,fielder})=>{
     setShowWicket(false);
     setMatch(m=>{
-      const nm=JSON.parse(JSON.stringify(m));
-      const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
-      bt.wickets++;bt.balls++;
-      if(!bt.overs.length)bt.overs.push([]);
-      bt.overs[bt.overs.length-1].push({runs:0,type:"wicket"});
-      bt.players[nm.strikerIdx].dismissed=true;
-      bt.players[nm.strikerIdx].dismissal=dismissal;
-      bt.players[nm.strikerIdx].catchBy=fielder||"";
-      bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx].name,over:overStr(bt.balls)});
-      nm.currentBowler.wickets=(nm.currentBowler.wickets||0)+1;
-      bw.players[nm.currentBowlerIdx].wickets=nm.currentBowler.wickets;
-      if(fielder){const fi=bw.players.findIndex(p=>p.name===fielder);if(fi>=0){if(dismissal==="Caught")bw.players[fi].catches=(bw.players[fi].catches||0)+1;if(dismissal==="Run Out")bw.players[fi].runOuts=(bw.players[fi].runOuts||0)+1;if(dismissal==="Stumped")bw.players[fi].stumpings=(bw.players[fi].stumpings||0)+1;}}
-      addComm(nm,`WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` by ${fielder}`:""}`);
-      const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
-      if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
-      if(bt.wickets>=10||bt.balls>=nm.overs*6)nm.needInningsEnd=true;
-      return nm;
+      try{
+        const nm=JSON.parse(JSON.stringify(m));
+        const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
+        if(!bt||!bw||!nm.striker||!nm.currentBowler)return m;
+        const isRunOut=dismissal==="Run Out";
+        // WICKET = 1 LEGAL BALL + 0 RUNS
+        bt.wickets++;bt.balls++;
+        nm.striker.balls++;
+        nm.currentBowler.ballsBowled=(nm.currentBowler.ballsBowled||0)+1;
+        if(bt.players[nm.strikerIdx])bt.players[nm.strikerIdx].balls=(bt.players[nm.strikerIdx].balls||0)+1;
+        if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].ballsBowled=(bw.players[nm.currentBowlerIdx].ballsBowled||0)+1;
+        if(!isRunOut){
+          nm.currentBowler.wickets=(nm.currentBowler.wickets||0)+1;
+          if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].wickets=nm.currentBowler.wickets;
+        }
+        if(fielder){const fi=bw.players.findIndex(p=>p.name===fielder);if(fi>=0){if(dismissal==="Caught")bw.players[fi].catches=(bw.players[fi].catches||0)+1;if(dismissal==="Run Out")bw.players[fi].runOuts=(bw.players[fi].runOuts||0)+1;if(dismissal==="Stumped")bw.players[fi].stumpings=(bw.players[fi].stumpings||0)+1;}}
+        if(!bt.overs)bt.overs=[];if(!bt.overs.length)bt.overs.push([]);
+        bt.overs[bt.overs.length-1].push({runs:0,type:"wicket"});
+        bt.players[nm.strikerIdx].dismissed=true;
+        bt.players[nm.strikerIdx].dismissal=dismissal;
+        bt.players[nm.strikerIdx].catchBy=fielder||"";
+        if(!bt.fow)bt.fow=[];
+        bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx].name,over:overStr(bt.balls)});
+        try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
+        // Next batter
+        const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
+        if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
+        // Over end
+        const overEnded=bt.balls%6===0&&bt.balls>0;
+        if(overEnded){bt.overs.push([]);nm.needBowler=true;const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;}
+        // Innings end
+        const maxWickets=(nm.numPlayers||11)-1;
+        if(bt.wickets>=maxWickets||bt.balls>=nm.overs*6)nm.needInningsEnd=true;
+        if(!nm.history)nm.history=[];
+        nm.history.push({score:bt.score,balls:bt.balls,type:"wicket"});
+        return nm;
+      }catch(e){console.error("wicket err",e);return m;}
     });
   };
-
   const handleUndo=()=>{
     setMatch(m=>{
       if(!m.history.length)return m;
@@ -2036,6 +2104,13 @@ export default function App(){
       if(bt.commentary?.length)bt.commentary.pop();
       return nm;
     });
+  };
+
+  const markMatchFinished = (matchId) => {
+    if(!matchId||!user) return;
+    import("firebase/firestore").then(({setDoc,doc:fsDoc})=>{
+      setDoc(fsDoc(db,"live_matches",matchId),{status:"finished",updatedAt:new Date().toISOString()},{merge:true}).catch(()=>{});
+    }).catch(()=>{});
   };
 
   const saveHistory=m=>{
@@ -2062,6 +2137,13 @@ export default function App(){
         teams:[{name:t0.name,score:t0.score,wickets:t0.wickets,balls:t0.balls,players:t0.players,extras:t0.extras,fow:t0.fow,commentary:t0.commentary},{name:t1.name,score:t1.score,wickets:t1.wickets,balls:t1.balls,players:t1.players,extras:t1.extras,fow:t1.fow,commentary:t1.commentary}],result};
       const prev=JSON.parse(localStorage.getItem("cricscan_history")||"[]");prev.push(rec);
       localStorage.setItem("cricscan_history",JSON.stringify(prev));localStorage.removeItem("cricscan_live");
+      if(m.matchId) markMatchFinished(m.matchId);
+      // Save to Firestore
+      if(user){
+        import("firebase/firestore").then(({addDoc,collection:col})=>{
+          addDoc(col(db,"matches"),{...rec,userId:user.uid,userEmail:user.email,createdAt:new Date().toISOString()}).catch(()=>{});
+        }).catch(()=>{});
+      }
     }catch{}
   };
 
