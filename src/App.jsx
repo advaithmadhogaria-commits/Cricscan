@@ -2069,7 +2069,18 @@ export default function App(){
     setMatch(m=>{
       if(!m)return m;
       const nm=JSON.parse(JSON.stringify(m));
-      saveInningsSnapshot(nm);
+      // Inline innings snapshot (saveInningsSnapshot removed)
+      if(!nm.inningsHistory)nm.inningsHistory=[];
+      const snap=nm.teams[nm.batting];
+      const snapBowl=nm.teams[nm.bowling];
+      nm.inningsHistory.push({
+        teamName:snap.name,
+        score:snap.score,wickets:snap.wickets,balls:snap.balls||0,
+        extras:{...snap.extras},
+        fow:[...(snap.fow||[])],
+        players:snap.players.map(p=>({...p})),
+        bowlers:snapBowl.players.filter(p=>(p.ballsBowled||0)>0).map(p=>({...p})),
+      });
       const maxInnings=nm.format==="test"?3:1;
       if(nm.inning<maxInnings){
         nm.inning++;const nb=nm.inning%2;const nw=1-nb;
@@ -2078,17 +2089,6 @@ export default function App(){
         nm.striker={...p[0]};nm.strikerIdx=0;nm.nonStriker={...p[1]};nm.nonStrikerIdx=1;nm.nextBatterIdx=2;
         nm.currentBowler={...nm.teams[nw].players[0]};nm.currentBowlerIdx=0;nm.needBowler=false;
         if(nm.format==="test"){
-          // Save completed innings snapshot before resetting
-          if(!nm.inningsHistory)nm.inningsHistory=[];
-          const completedTeam=nm.teams[nm.batting];
-          const bowlingTeam=nm.teams[nm.bowling];
-          nm.inningsHistory.push({
-            teamName:completedTeam.name,
-            score:completedTeam.score,wickets:completedTeam.wickets,balls:completedTeam.balls,
-            extras:{...completedTeam.extras},fow:[...(completedTeam.fow||[])],
-            players:completedTeam.players.map(p=>({...p})),
-            bowlers:bowlingTeam.players.filter(p=>(p.ballsBowled||0)>0).map(p=>({...p})),
-          });
           // Reset batting team for next innings
           nm.teams[nb].players.forEach(p=>{p.runs=0;p.balls=0;p.dismissed=false;p.dismissal="";p.catchBy="";p.fours=0;p.sixes=0;});
           nm.teams[nb].score=0;nm.teams[nb].wickets=0;nm.teams[nb].balls=0;nm.teams[nb].overs=[];nm.teams[nb].fow=[];nm.teams[nb].commentary=[];
