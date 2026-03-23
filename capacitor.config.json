@@ -1,0 +1,19 @@
+{
+  "appId": "com.advaith.cricscan",
+  "appName": "CricScan",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#080c10"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#080c10",
+      "showSpinner": false
+    }
+  }
+}
