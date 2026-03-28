@@ -1303,7 +1303,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:10,letterSpacing:2}}>{bt.name}</div>
           <div style={{display:"flex",gap:5}}>
-            <span style={{fontSize:9,color:"var(--muted)",background:"var(--bg3)",padding:"2px 7px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.format==="test"?`TEST INN ${match.inning+1}`:`${match.overs}ov`}</span>
+            <span style={{fontSize:9,color:"var(--muted)",background:"var(--bg3)",padding:"2px 7px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.format==="test"?`TEST ${["1ST","2ND","3RD","4TH"][match.inning]||`INN ${match.inning+1}`} INN`:`${match.overs}ov`}</span>
             <span style={{fontSize:9,color:"var(--muted)",background:"var(--bg3)",padding:"2px 7px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700}}>{match.ballType?.toUpperCase()}</span>
             {match.isPublic
               ?<span style={{fontSize:9,color:"var(--accent3)",background:"rgba(57,255,20,0.1)",padding:"2px 7px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700}}>📡</span>
@@ -1572,6 +1572,77 @@ function StrikeSwapDialog({striker,nonStriker,onConfirm,onCancel}){
           <button onClick={onCancel} style={{flex:1,padding:"12px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer",letterSpacing:1}}>NO CHANGE</button>
           <button onClick={onConfirm} style={{flex:1,padding:"12px 0",background:"var(--accent)",color:"#000",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>YES SWAP ✓</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── INNINGS BREAK DIALOG ─────────────────────────────────────────────────────
+function InningsBreakDialog({ inningNum, nextTeam, isLastInnings, onStartInnings, onStumps, onEndMatch }) {
+  const [showBreak, setShowBreak] = useState(false);
+  const inningsLabel = ["1st","2nd","3rd","4th"];
+
+  if (showBreak) {
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.96)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:600, padding:16 }}>
+        <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:"var(--rad2)", padding:24, width:"100%", maxWidth:340, textAlign:"center" }}>
+          <div style={{ fontSize:36, marginBottom:10 }}>⏸️</div>
+          <div style={{ fontFamily:"Orbitron", color:"var(--accent)", fontSize:13, letterSpacing:2, marginBottom:6 }}>SELECT BREAK</div>
+          <div style={{ color:"var(--muted)", fontSize:13, marginBottom:20, fontFamily:"Barlow Condensed" }}>
+            Match will be saved and you can resume later
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {[["🌙 STUMPS","STUMPS"],["☕ TEA BREAK","TEA"],["🍽 LUNCH BREAK","LUNCH"],["🌧 RAIN DELAY","RAIN"]].map(([label,type])=>(
+              <button key={type} onClick={()=>onStumps(label)}
+                style={{ padding:"12px 0", background:"var(--bg3)", color:"var(--muted)", border:"1px solid var(--border)", borderRadius:"var(--rad)", fontFamily:"Barlow Condensed", fontWeight:700, fontSize:14, cursor:"pointer", letterSpacing:1 }}>
+                {label}
+              </button>
+            ))}
+            <button onClick={()=>setShowBreak(false)} style={{ padding:"10px 0", background:"transparent", color:"var(--muted)", border:"none", fontFamily:"Barlow Condensed", fontSize:13, cursor:"pointer", marginTop:4 }}>← Back</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.96)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:600, padding:16 }}>
+      <div style={{ background:"var(--card)", border:"1px solid var(--accent)", borderRadius:"var(--rad2)", padding:24, width:"100%", maxWidth:360, textAlign:"center" }}>
+        <div style={{ fontSize:44, marginBottom:10 }}>🏏</div>
+        <div style={{ fontFamily:"Orbitron", color:"var(--accent)", fontSize:13, letterSpacing:2, marginBottom:6 }}>
+          INNINGS {inningNum} COMPLETE
+        </div>
+        {!isLastInnings ? (
+          <>
+            <div style={{ color:"var(--text)", fontSize:15, fontFamily:"Barlow Condensed", fontWeight:700, marginBottom:4 }}>
+              {inningsLabel[inningNum]} Innings — {nextTeam}
+            </div>
+            <div style={{ color:"var(--muted)", fontSize:12, fontFamily:"Barlow Condensed", marginBottom:24 }}>
+              What would you like to do?
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <button onClick={onStartInnings}
+                style={{ padding:"14px 0", background:"linear-gradient(135deg,var(--accent),#0099bb)", color:"#000", border:"none", borderRadius:"var(--rad2)", fontFamily:"Orbitron", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:2 }}>
+                ▶ START {inningsLabel[inningNum].toUpperCase()} INNINGS
+              </button>
+              <button onClick={()=>setShowBreak(true)}
+                style={{ padding:"13px 0", background:"rgba(255,215,0,0.08)", color:"var(--gold)", border:"1px solid rgba(255,215,0,0.3)", borderRadius:"var(--rad2)", fontFamily:"Barlow Condensed", fontWeight:700, fontSize:14, cursor:"pointer", letterSpacing:1 }}>
+                ⏸️ TAKE A BREAK / STUMPS
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ color:"var(--muted)", fontSize:13, fontFamily:"Barlow Condensed", marginBottom:24 }}>
+              All 4 innings complete. End the match?
+            </div>
+            <button onClick={onEndMatch}
+              style={{ width:"100%", padding:"14px 0", background:"linear-gradient(135deg,var(--gold),#cc9900)", color:"#000", border:"none", borderRadius:"var(--rad2)", fontFamily:"Orbitron", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:2 }}>
+              🏆 END MATCH
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1926,6 +1997,7 @@ export default function App(){
   const [showLiveViewer,setShowLiveViewer]=useState(false);
   const [liveViewId,setLiveViewId]=useState("");
   const [showLiveBrowser,setShowLiveBrowser]=useState(false);
+  const [showInningsBreak,setShowInningsBreak]=useState(false);
   const [showBatterChange,setShowBatterChange]=useState(false);
 
   // Check for live score URL param
@@ -2060,41 +2132,73 @@ export default function App(){
         const nm=JSON.parse(JSON.stringify(m));
         const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
         if(!bt||!bw||!nm.striker||!nm.currentBowler)return m;
-        const isRunOut=dismissal==="Run Out";
-        // WICKET = 1 LEGAL BALL + 0 RUNS
-        bt.wickets++;bt.balls++;
-        nm.striker.balls++;
-        nm.currentBowler.ballsBowled=(nm.currentBowler.ballsBowled||0)+1;
-        if(bt.players[nm.strikerIdx])bt.players[nm.strikerIdx].balls=(bt.players[nm.strikerIdx].balls||0)+1;
-        if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].ballsBowled=(bw.players[nm.currentBowlerIdx].ballsBowled||0)+1;
-        if(!isRunOut){
+
+        // ── WICKET: Only increment wicket count, NOT balls
+        // Balls were already counted when scorer pressed 0/runs before wicket
+        bt.wickets++;
+
+        // ── Bowler gets credit (except Run Out)
+        if(dismissal!=="Run Out"&&dismissal!=="Timed Out"){
           nm.currentBowler.wickets=(nm.currentBowler.wickets||0)+1;
-          if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].wickets=nm.currentBowler.wickets;
+          if(bw.players[nm.currentBowlerIdx])
+            bw.players[nm.currentBowlerIdx].wickets=nm.currentBowler.wickets;
         }
-        if(fielder){const fi=bw.players.findIndex(p=>p.name===fielder);if(fi>=0){if(dismissal==="Caught")bw.players[fi].catches=(bw.players[fi].catches||0)+1;if(dismissal==="Run Out")bw.players[fi].runOuts=(bw.players[fi].runOuts||0)+1;if(dismissal==="Stumped")bw.players[fi].stumpings=(bw.players[fi].stumpings||0)+1;}}
-        if(!bt.overs)bt.overs=[];if(!bt.overs.length)bt.overs.push([]);
-        bt.overs[bt.overs.length-1].push({runs:0,type:"wicket"});
+
+        // ── Fielder credit
+        if(fielder){
+          const fi=bw.players.findIndex(p=>p.name===fielder);
+          if(fi>=0){
+            if(dismissal==="Caught")bw.players[fi].catches=(bw.players[fi].catches||0)+1;
+            if(dismissal==="Run Out")bw.players[fi].runOuts=(bw.players[fi].runOuts||0)+1;
+            if(dismissal==="Stumped")bw.players[fi].stumpings=(bw.players[fi].stumpings||0)+1;
+          }
+        }
+
+        // ── Mark ball in over as wicket (for display)
+        if(!bt.overs)bt.overs=[];
+        if(!bt.overs.length)bt.overs.push([]);
+        const lastOver=bt.overs[bt.overs.length-1];
+        if(lastOver.length>0){
+          lastOver[lastOver.length-1]={...lastOver[lastOver.length-1],type:"wicket"};
+        }
+
+        // ── Dismiss batter
         bt.players[nm.strikerIdx].dismissed=true;
         bt.players[nm.strikerIdx].dismissal=dismissal;
         bt.players[nm.strikerIdx].catchBy=fielder||"";
         if(!bt.fow)bt.fow=[];
         bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx].name,over:overStr(bt.balls)});
         try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
-        // Next batter
-        const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
-        if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
-        // Over end
-        const overEnded=bt.balls%6===0&&bt.balls>0;
-        if(overEnded){bt.overs.push([]);nm.needBowler=true;const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;}
-        // Innings end
+
+        // ── Check innings end FIRST before bringing next batter
         const maxWickets=(nm.numPlayers||11)-1;
-        if(bt.wickets>=maxWickets||bt.balls>=nm.overs*6)nm.needInningsEnd=true;
+        const inningsOver=bt.wickets>=maxWickets||bt.balls>=nm.overs*6;
+
+        if(inningsOver){
+          // Innings is over - do NOT bring next batter, just end innings
+          nm.needInningsEnd=true;
+          nm.needBowler=false; // cancel any bowler select
+        } else {
+          // ── Bring next batter
+          const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
+          if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
+          // ── Check over end (separate from innings end)
+          const overEnded=bt.balls%6===0&&bt.balls>0;
+          if(overEnded&&!inningsOver){
+            bt.overs.push([]);
+            nm.needBowler=true;
+            const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;
+            const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;
+          }
+        }
+
         if(!nm.history)nm.history=[];
         nm.history.push({score:bt.score,balls:bt.balls,type:"wicket"});
         return nm;
-      }catch(e){console.error("wicket err",e);return m;}
+      }catch(e){console.error("confirmWicket error:",e);return m;}
     });
   };
+
   const handleUndo=()=>{
     setMatch(m=>{
       if(!m.history.length)return m;
@@ -2165,25 +2269,31 @@ export default function App(){
       });
       const maxInnings=nm.format==="test"?3:1;
       if(nm.inning<maxInnings){
+        // For test: show innings break dialog before starting next innings
+        if(nm.format==="test"){
+          nm.needInningsBreak=true;
+          nm.nextInningNum=nm.inning+1;
+          return nm;
+        }
         nm.inning++;const nb=nm.inning%2;const nw=1-nb;
         nm.batting=nb;nm.bowling=nw;
         const p=nm.teams[nb].players;
         nm.striker={...p[0]};nm.strikerIdx=0;nm.nonStriker={...p[1]};nm.nonStrikerIdx=1;nm.nextBatterIdx=2;
         nm.currentBowler={...nm.teams[nw].players[0]};nm.currentBowlerIdx=0;nm.needBowler=false;
-        if(nm.format==="test"){
-          // Reset batting team for next innings
-          nm.teams[nb].players.forEach(p=>{p.runs=0;p.balls=0;p.dismissed=false;p.dismissal="";p.catchBy="";p.fours=0;p.sixes=0;});
-          nm.teams[nb].score=0;nm.teams[nb].wickets=0;nm.teams[nb].balls=0;nm.teams[nb].overs=[];nm.teams[nb].fow=[];nm.teams[nb].commentary=[];
-          // Reset bowling team's bowling stats for new innings
-          nm.teams[nw].players.forEach(p=>{p.ballsBowled=0;p.runsConceded=0;p.wickets=0;p.maidens=0;});
-        }
+        return nm;
+      }
+      // For test last innings end - show break dialog too
+      if(nm.format==="test"){
+        nm.needInningsBreak=true;
+        nm.nextInningNum=nm.inning+1;
+        nm.isLastInnings=true;
         return nm;
       }
       nm.ended=true;return nm;
     });
     setTimeout(()=>{
       setMatch(m=>{
-        if(m?.ended||(m?.inning>=(m?.format==="test"?3:1))){saveHistory(m);setScreen("result");}
+        if(m?.ended){saveHistory(m);setScreen("result");}
         return m;
       });
     },100);
@@ -2233,6 +2343,31 @@ export default function App(){
     });
   };
 
+  const startNextInnings = () => {
+    setShowInningsBreak(false);
+    setMatch(m => {
+      if(!m) return m;
+      const nm = JSON.parse(JSON.stringify(m));
+      nm.needInningsBreak = false;
+      nm.inning++;
+      const nb = nm.inning % 2;
+      const nw = 1 - nb;
+      nm.batting = nb; nm.bowling = nw;
+      const p = nm.teams[nb].players;
+      nm.striker = {...p[0]}; nm.strikerIdx = 0;
+      nm.nonStriker = {...p[1]}; nm.nonStrikerIdx = 1;
+      nm.nextBatterIdx = 2;
+      nm.currentBowler = {...nm.teams[nw].players[0]};
+      nm.currentBowlerIdx = 0; nm.needBowler = false;
+      // Reset batting team stats for new innings
+      nm.teams[nb].players.forEach(p => { p.runs=0;p.balls=0;p.dismissed=false;p.dismissal="";p.catchBy="";p.fours=0;p.sixes=0; });
+      nm.teams[nb].score=0;nm.teams[nb].wickets=0;nm.teams[nb].balls=0;nm.teams[nb].overs=[];nm.teams[nb].fow=[];nm.teams[nb].commentary=[];
+      // Reset bowling team bowling stats
+      nm.teams[nw].players.forEach(p => { p.ballsBowled=0;p.runsConceded=0;p.wickets=0;p.maidens=0; });
+      return nm;
+    });
+  };
+
   const doStrikeSwap=()=>{
     setMatch(m=>{const nm=JSON.parse(JSON.stringify(m));nm.pendingStrikeSwap=false;const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;return nm;});
   };
@@ -2241,6 +2376,7 @@ export default function App(){
   useEffect(()=>{
     if(match?.needBowler&&!showBowlerSelect)setShowBowlerSelect(true);
     if(match?.needInningsEnd)handleEndInnings();
+    if(match?.needInningsBreak&&!showInningsBreak)setShowInningsBreak(true);
     if(match?.pendingStrikeSwap&&!showStrikeSwap)setShowStrikeSwap(true);
     if(match?.needBatterChange&&!showBatterChange){
       setShowBatterChange(true);
@@ -2329,6 +2465,16 @@ export default function App(){
                 </div>
               </div>
             </div>
+          )}
+          {showInningsBreak&&match&&(
+            <InningsBreakDialog
+              inningNum={match.nextInningNum||1}
+              nextTeam={match.teams?.[(match.nextInningNum||1)%2]?.name||""}
+              isLastInnings={!!(match.isLastInnings)}
+              onStartInnings={startNextInnings}
+              onStumps={t=>{setStumpsType(t);setShowInningsBreak(false);}}
+              onEndMatch={()=>{setShowInningsBreak(false);setMatch(m=>{if(!m)return m;const nm={...m,ended:true};saveHistory(nm);return nm;});setScreen("result");}}
+            />
           )}
           {showWicket&&match?.striker&&match?.nonStriker&&<WicketDialog batters={[match.striker,match.nonStriker].filter(Boolean)} fieldingTeam={(match.teams[match.bowling]?.players||[]).filter(Boolean)} onConfirm={confirmWicket} onCancel={()=>setShowWicket(false)}/>}
           {showBowlerSelect&&<BowlerSelectDialog players={match.teams[match.bowling].players} currentBowler={match.currentBowler?.name} onSelect={confirmBowler}/>}
