@@ -2133,11 +2133,10 @@ export default function App(){
         const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
         if(!bt||!bw||!nm.striker||!nm.currentBowler)return m;
 
-        // ── WICKET: Only increment wicket count, NOT balls
-        // Balls were already counted when scorer pressed 0/runs before wicket
+        // ── Wicket: increment wickets only (balls already counted via run button)
         bt.wickets++;
 
-        // ── Bowler gets credit (except Run Out)
+        // ── Bowler credit (not for Run Out / Timed Out)
         if(dismissal!=="Run Out"&&dismissal!=="Timed Out"){
           nm.currentBowler.wickets=(nm.currentBowler.wickets||0)+1;
           if(bw.players[nm.currentBowlerIdx])
@@ -2154,7 +2153,7 @@ export default function App(){
           }
         }
 
-        // ── Mark ball in over as wicket (for display)
+        // ── Mark last ball in current over as wicket for display
         if(!bt.overs)bt.overs=[];
         if(!bt.overs.length)bt.overs.push([]);
         const lastOver=bt.overs[bt.overs.length-1];
@@ -2162,31 +2161,45 @@ export default function App(){
           lastOver[lastOver.length-1]={...lastOver[lastOver.length-1],type:"wicket"};
         }
 
-        // ── Dismiss batter
+        // ── Dismiss the batter in players array
         bt.players[nm.strikerIdx].dismissed=true;
         bt.players[nm.strikerIdx].dismissal=dismissal;
         bt.players[nm.strikerIdx].catchBy=fielder||"";
         if(!bt.fow)bt.fow=[];
         bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx].name,over:overStr(bt.balls)});
+
+        // ── Update nm.striker to reflect dismissed state (fixes scorecard)
+        nm.striker={...bt.players[nm.strikerIdx]};
+
         try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
 
-        // ── Check innings end FIRST before bringing next batter
+        // ── Check innings end BEFORE bringing next batter
         const maxWickets=(nm.numPlayers||11)-1;
-        const inningsOver=bt.wickets>=maxWickets||bt.balls>=nm.overs*6;
+        const inningsOver=bt.wickets>=maxWickets;
 
         if(inningsOver){
-          // Innings is over - do NOT bring next batter, just end innings
+          // All out - end innings, cancel bowler select
           nm.needInningsEnd=true;
-          nm.needBowler=false; // cancel any bowler select
+          nm.needBowler=false;
+          nm.pendingStrikeSwap=false;
         } else {
-          // ── Bring next batter
+          // ── Bring next batter in
           const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
-          if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
-          // ── Check over end (separate from innings end)
-          const overEnded=bt.balls%6===0&&bt.balls>0;
-          if(overEnded&&!inningsOver){
+          if(next>=0){
+            nm.strikerIdx=next;
+            nm.striker={...bt.players[next]};
+            nm.nextBatterIdx++;
+          }
+          // ── Over end: only trigger if last ball was a legal delivery
+          // The last ball in the over was already pushed by handleBall
+          // We check if bt.balls is divisible by 6 AND the last ball was legal
+          const lastBall=lastOver[lastOver.length-1];
+          const wasLegalBall=lastBall&&lastBall.type!=="wide"&&lastBall.type!=="noBall";
+          const overEnded=wasLegalBall&&bt.balls>0&&bt.balls%6===0;
+          if(overEnded){
             bt.overs.push([]);
             nm.needBowler=true;
+            // Swap strike at end of over
             const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;
             const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;
           }
