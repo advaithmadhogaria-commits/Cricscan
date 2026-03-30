@@ -2111,15 +2111,9 @@ export default function App(){
         bt.overs[bt.overs.length-1].push({runs,type});
 
         // Check overs end (wickets checked separately in confirmWicket)
-        const oversEnd=bt.balls>=nm.overs*6&&nm.format!=="test";
         const overEnded=isLegal&&bt.balls%6===0&&bt.balls>0;
 
-        if(oversEnd){
-          // All overs done - end innings
-          nm.needInningsEnd=true;
-          nm.needBowler=false;
-          nm.pendingStrikeSwap=false;
-        } else if(overEnded){
+        if(overEnded){
           // Over ended - ask for new bowler, swap strike
           bt.overs.push([]);
           nm.needBowler=true;
@@ -2127,7 +2121,7 @@ export default function App(){
           const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;
         }
 
-        if(isLegal&&!overEnded&&!oversEnd&&runs%2===1)nm.pendingStrikeSwap=true;
+        if(isLegal&&!overEnded&&runs%2===1)nm.pendingStrikeSwap=true;
         if(!nm.history)nm.history=[];
         nm.history.push({score:bt.score,balls:bt.balls});
         return nm;
@@ -2165,12 +2159,19 @@ export default function App(){
           }
         }
 
-        // ── Mark last ball in current over as wicket for display
+        // ── Record wicket ball in over for display
         if(!bt.overs)bt.overs=[];
         if(!bt.overs.length)bt.overs.push([]);
         const lastOver=bt.overs[bt.overs.length-1];
         if(lastOver.length>0){
+          // Ball was already recorded by run button - mark it as wicket
           lastOver[lastOver.length-1]={...lastOver[lastOver.length-1],type:"wicket"};
+        } else {
+          // No run button pressed before wicket - add ball and count it
+          lastOver.push({runs:0,type:"wicket"});
+          bt.balls++;
+          if(nm.currentBowler)nm.currentBowler.ballsBowled=(nm.currentBowler.ballsBowled||0)+1;
+          if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].ballsBowled=(bw.players[nm.currentBowlerIdx].ballsBowled||0)+1;
         }
 
         // ── Dismiss the batter in players array
@@ -2185,17 +2186,11 @@ export default function App(){
 
         try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
 
-        // ── Check innings end - all wickets fallen
+        // ── Bring next batter if innings NOT over
         const maxWickets=(nm.numPlayers||11)-1;
         const inningsOver=bt.wickets>=maxWickets;
 
-        if(inningsOver){
-          // All out - end innings immediately
-          nm.needInningsEnd=true;
-          nm.needBowler=false;
-          nm.pendingStrikeSwap=false;
-          nm.needBatterChange=false;
-        } else {
+        if(!inningsOver){
           // ── Bring next batter in
           const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
           if(next>=0){
@@ -2409,25 +2404,34 @@ export default function App(){
   const cancelStrikeSwap=()=>{setMatch(m=>{const nm=JSON.parse(JSON.stringify(m));nm.pendingStrikeSwap=false;return nm;});};
 
   useEffect(()=>{
-    if(!match)return;
-    if(match.needInningsEnd){
-      // Handle innings end immediately - highest priority
+    if(!match||match.ended)return;
+    const bt=match.teams?.[match.batting];
+    if(!bt)return;
+    const maxWickets=(match.numPlayers||11)-1;
+    const allOut=bt.wickets>=maxWickets;
+    const oversUp=match.format!=="test"&&bt.balls>=match.overs*6;
+
+    if(allOut||oversUp){
+      // Innings is definitively over - end it now
       setShowBowlerSelect(false);
       setShowStrikeSwap(false);
       handleEndInnings();
       return;
     }
-    if(match.needInningsBreak&&!showInningsBreak){
-      setShowInningsBreak(true);
-      return;
-    }
+    if(match.needInningsBreak&&!showInningsBreak){setShowInningsBreak(true);return;}
     if(match.needBowler&&!showBowlerSelect)setShowBowlerSelect(true);
     if(match.pendingStrikeSwap&&!showStrikeSwap)setShowStrikeSwap(true);
     if(match.needBatterChange&&!showBatterChange){
       setShowBatterChange(true);
       setMatch(m=>m?({...m,needBatterChange:false}):m);
     }
-  },[match?.needBowler,match?.needInningsEnd,match?.needInningsBreak,match?.pendingStrikeSwap,match?.needBatterChange]);
+  },[
+    match?.teams?.[0]?.wickets,match?.teams?.[1]?.wickets,
+    match?.teams?.[0]?.balls,match?.teams?.[1]?.balls,
+    match?.needBowler,match?.needInningsBreak,
+    match?.pendingStrikeSwap,match?.needBatterChange,
+    match?.batting,match?.ended
+  ]);
 
   // Innings end is handled via needInningsEnd flag in the main useEffect above
 
