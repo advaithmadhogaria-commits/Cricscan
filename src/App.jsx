@@ -2106,27 +2106,28 @@ export default function App(){
         try{addComm(nm,type==="wide"?"Wide ball":type==="noBall"?`No ball (${runs} run${runs!==1?"s":""})`:runs===4?`FOUR! ${striker.name} drives to the boundary`:runs===6?`SIX! ${striker.name} goes big!`:runs===0?`Dot ball. Defended by ${striker.name}.`:`${runs} run${runs>1?"s":""} taken by ${striker.name}`);}catch{}
 
         if(!bt.overs)bt.overs=[];
-        const maxWicketsInBall=(nm.numPlayers||11)-1;
-        const inningsOverAfterBall=bt.wickets>=maxWicketsInBall||bt.balls>=nm.overs*6;
+        // ALWAYS record the ball in the current over first
+        if(!bt.overs.length)bt.overs.push([]);
+        bt.overs[bt.overs.length-1].push({runs,type});
+
+        // Check overs end (wickets checked separately in confirmWicket)
+        const oversEnd=bt.balls>=nm.overs*6&&nm.format!=="test";
         const overEnded=isLegal&&bt.balls%6===0&&bt.balls>0;
 
-        if(inningsOverAfterBall){
-          // Innings over - highest priority
+        if(oversEnd){
+          // All overs done - end innings
           nm.needInningsEnd=true;
           nm.needBowler=false;
           nm.pendingStrikeSwap=false;
-          if(!bt.overs.length)bt.overs.push([]);
-          bt.overs[bt.overs.length-1].push({runs,type});
         } else if(overEnded){
-          bt.overs.push([]);nm.needBowler=true;
+          // Over ended - ask for new bowler, swap strike
+          bt.overs.push([]);
+          nm.needBowler=true;
           const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;
           const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;
-        } else {
-          if(!bt.overs.length)bt.overs.push([]);
-          bt.overs[bt.overs.length-1].push({runs,type});
         }
 
-        if(isLegal&&!overEnded&&!inningsOverAfterBall&&runs%2===1)nm.pendingStrikeSwap=true;
+        if(isLegal&&!overEnded&&!oversEnd&&runs%2===1)nm.pendingStrikeSwap=true;
         if(!nm.history)nm.history=[];
         nm.history.push({score:bt.score,balls:bt.balls});
         return nm;
@@ -2184,16 +2185,16 @@ export default function App(){
 
         try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
 
-        // ── Check innings end BEFORE bringing next batter
+        // ── Check innings end - all wickets fallen
         const maxWickets=(nm.numPlayers||11)-1;
         const inningsOver=bt.wickets>=maxWickets;
 
         if(inningsOver){
-          // All out - end innings, cancel bowler select
+          // All out - end innings immediately
           nm.needInningsEnd=true;
           nm.needBowler=false;
           nm.pendingStrikeSwap=false;
-          nm.inningsEndReason="allout";
+          nm.needBatterChange=false;
         } else {
           // ── Bring next batter in
           const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
