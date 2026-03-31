@@ -1500,10 +1500,10 @@ function WicketDialog({batters,fieldingTeam,onConfirm,onCancel}){
   const [outBatter,setOutBatter]=useState(0);
   const [dismissal,setDismissal]=useState("Bowled");
   const [fielder,setFielder]=useState("");
+  const [runsOnBall,setRunsOnBall]=useState(0);
   const dismissals=["Bowled","Caught","LBW","Run Out","Stumped","Hit Wicket","Handled Ball","Obstructing Field","Timed Out","Hit Ball Twice"];
   const needsFielder=["Caught","Run Out","Stumped"].includes(dismissal);
   const ss={width:"100%",padding:"9px 12px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:15,marginBottom:10};
-  // Safety guard
   const safeBatters=(batters||[]).filter(Boolean);
   const safeFielders=(fieldingTeam||[]).filter(Boolean);
   if(safeBatters.length===0) return null;
@@ -1526,9 +1526,21 @@ function WicketDialog({batters,fieldingTeam,onConfirm,onCancel}){
             {safeFielders.map((p,i)=><option key={i} value={p?.name||""}>{p?.name||"Fielder "+(i+1)}</option>)}
           </select>
         </>}
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:11,color:"var(--muted)",letterSpacing:1,marginBottom:6,fontFamily:"Barlow Condensed",fontWeight:700}}>RUNS SCORED ON THIS BALL</div>
+          <div style={{display:"flex",gap:6}}>
+            {[0,1,2,3,4,6].map(r=>(
+              <button key={r} onClick={()=>setRunsOnBall(r)}
+                style={{flex:1,padding:"10px 0",background:runsOnBall===r?"var(--accent)":"var(--bg3)",color:runsOnBall===r?"#000":"var(--text)",border:`1px solid ${runsOnBall===r?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:15,cursor:"pointer"}}>
+                {r===0?"•":r}
+              </button>
+            ))}
+          </div>
+          <div style={{fontSize:10,color:"var(--muted)",marginTop:4,fontFamily:"Barlow Condensed"}}>e.g. Run Out on a 2 → select 2</div>
+        </div>
         <div style={{display:"flex",gap:8,marginTop:4}}>
           <button onClick={onCancel} style={{flex:1,padding:11,background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:14,cursor:"pointer"}}>Cancel</button>
-          <button onClick={()=>onConfirm({outIdx:outBatter,dismissal,fielder})} style={{flex:1,padding:11,background:"var(--danger)",color:"#fff",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>CONFIRM OUT</button>
+          <button onClick={()=>onConfirm({outIdx:outBatter,dismissal,fielder,runsOnBall})} style={{flex:1,padding:11,background:"var(--danger)",color:"#fff",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>CONFIRM OUT</button>
         </div>
       </div>
     </div>
@@ -2086,67 +2098,123 @@ export default function App(){
   const handleBall=useCallback((runs,type)=>{
     setMatch(m=>{
       try{
+        if(!m||!m.teams)return m;
         const nm=JSON.parse(JSON.stringify(m));
-        const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
+        const bt=nm.teams[nm.batting];
+        const bw=nm.teams[nm.bowling];
         if(!bt||!bw||!nm.striker||!nm.currentBowler)return m;
-        const striker=nm.striker;const bowler=nm.currentBowler;
-        const isExtra=type==="wide"||type==="noBall";const isLegal=!isExtra;
 
+        const striker=nm.striker;
+        const bowler=nm.currentBowler;
+        const isExtra=type==="wide"||type==="noBall";
+        const isLegal=!isExtra;
+
+        // Score
         bt.score+=runs+(isExtra?1:0);
         if(!bt.extras)bt.extras={wide:0,noBall:0,bye:0,legBye:0};
         if(isExtra)bt.extras[type]=(bt.extras[type]||0)+1+(runs>0?runs:0);
-        if(isLegal||type==="bye"||type==="legBye"){striker.balls++;bt.balls++;bowler.ballsBowled++;}
-        if(type==="normal"||type==="camera"){striker.runs+=runs;if(runs===4)striker.fours++;if(runs===6)striker.sixes++;}
+
+        // Ball count - only for legal + bye + legBye
+        if(isLegal||type==="bye"||type==="legBye"){
+          striker.balls++;bt.balls++;bowler.ballsBowled++;
+        }
+
+        // Runs to batter
+        if(type==="normal"||type==="camera"){
+          striker.runs+=runs;
+          if(runs===4)striker.fours++;
+          if(runs===6)striker.sixes++;
+        }
+
         bowler.runsConceded=(bowler.runsConceded||0)+runs+(isExtra?1:0);
-
         nm.striker=striker;nm.currentBowler=bowler;
-        if(bt.players&&nm.strikerIdx!=null)bt.players[nm.strikerIdx]={...bt.players[nm.strikerIdx],runs:striker.runs,balls:striker.balls,fours:striker.fours,sixes:striker.sixes};
-        if(bw.players&&nm.currentBowlerIdx!=null)bw.players[nm.currentBowlerIdx]={...bw.players[nm.currentBowlerIdx],runsConceded:bowler.runsConceded,ballsBowled:bowler.ballsBowled};
 
-        try{addComm(nm,type==="wide"?"Wide ball":type==="noBall"?`No ball (${runs} run${runs!==1?"s":""})`:runs===4?`FOUR! ${striker.name} drives to the boundary`:runs===6?`SIX! ${striker.name} goes big!`:runs===0?`Dot ball. Defended by ${striker.name}.`:`${runs} run${runs>1?"s":""} taken by ${striker.name}`);}catch{}
+        // Sync to players arrays
+        if(bt.players&&nm.strikerIdx!=null)
+          bt.players[nm.strikerIdx]={...bt.players[nm.strikerIdx],runs:striker.runs,balls:striker.balls,fours:striker.fours||0,sixes:striker.sixes||0};
+        if(bw.players&&nm.currentBowlerIdx!=null)
+          bw.players[nm.currentBowlerIdx]={...bw.players[nm.currentBowlerIdx],runsConceded:bowler.runsConceded,ballsBowled:bowler.ballsBowled};
 
+        // Commentary
+        try{addComm(nm,type==="wide"?"Wide ball":type==="noBall"?`No ball (${runs}r)`:runs===4?`FOUR! 🏏`:runs===6?`SIX! 🚀`:runs===0?`Dot ball.`:`${runs} run${runs>1?"s":""}`);}catch{}
+
+        // Record ball in over
         if(!bt.overs)bt.overs=[];
-        // ALWAYS record the ball in the current over first
         if(!bt.overs.length)bt.overs.push([]);
         bt.overs[bt.overs.length-1].push({runs,type});
 
-        // Check overs end (wickets checked separately in confirmWicket)
-        const overEnded=isLegal&&bt.balls%6===0&&bt.balls>0;
+        // Check state
+        const numP=nm.numPlayers||bt.players?.length||11;
+        const maxW=numP-1;
+        const isTest=nm.format==="test";
+        const oversAllDone=!isTest&&isLegal&&bt.balls>=nm.overs*6;
+        const allOut=bt.wickets>=maxW;
+        const overJustEnded=isLegal&&bt.balls>0&&bt.balls%6===0;
 
-        if(overEnded){
-          // Over ended - ask for new bowler, swap strike
+        if(oversAllDone){
+          // All overs done - end innings
+          nm.inningsJustEnded=true;
+          nm.needBowler=false;
+          nm.pendingStrikeSwap=false;
+        } else if(overJustEnded){
+          // Over complete - new over, swap strike, ask bowler
           bt.overs.push([]);
           nm.needBowler=true;
+          nm.pendingStrikeSwap=false;
           const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;
           const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;
+        } else if(isLegal&&runs%2===1){
+          // Odd runs - swap strike
+          nm.pendingStrikeSwap=true;
         }
 
-        if(isLegal&&!overEnded&&runs%2===1)nm.pendingStrikeSwap=true;
         if(!nm.history)nm.history=[];
         nm.history.push({score:bt.score,balls:bt.balls});
         return nm;
-      }catch(e){console.error("handleBall error:",e);return m;}
+      }catch(e){console.error("handleBall:",e);return m;}
     });
   },[]);
-
   const handleWicket=()=>setShowWicket(true);
 
-  const confirmWicket=({outIdx,dismissal,fielder})=>{
+  const confirmWicket=({outIdx,dismissal,fielder,runsOnBall=0})=>{
     setShowWicket(false);
     setMatch(m=>{
       try{
+        if(!m||!m.teams)return m;
         const nm=JSON.parse(JSON.stringify(m));
-        const bt=nm.teams[nm.batting];const bw=nm.teams[nm.bowling];
+        const bt=nm.teams[nm.batting];
+        const bw=nm.teams[nm.bowling];
         if(!bt||!bw||!nm.striker||!nm.currentBowler)return m;
 
-        // ── Wicket: increment wickets only (balls already counted via run button)
+        // ── Count the ball
+        bt.balls++;
+        nm.striker.balls=(nm.striker.balls||0)+1;
+        if(bt.players[nm.strikerIdx])bt.players[nm.strikerIdx].balls=(bt.players[nm.strikerIdx].balls||0)+1;
+        nm.currentBowler.ballsBowled=(nm.currentBowler.ballsBowled||0)+1;
+        if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].ballsBowled=(bw.players[nm.currentBowlerIdx].ballsBowled||0)+1;
+
+        // ── Score runs on ball
+        if(runsOnBall>0){
+          bt.score+=runsOnBall;
+          nm.striker.runs=(nm.striker.runs||0)+runsOnBall;
+          if(runsOnBall===4)nm.striker.fours=(nm.striker.fours||0)+1;
+          if(runsOnBall===6)nm.striker.sixes=(nm.striker.sixes||0)+1;
+          nm.currentBowler.runsConceded=(nm.currentBowler.runsConceded||0)+runsOnBall;
+          if(bt.players[nm.strikerIdx]){
+            bt.players[nm.strikerIdx].runs=(bt.players[nm.strikerIdx].runs||0)+runsOnBall;
+            if(runsOnBall===4)bt.players[nm.strikerIdx].fours=(bt.players[nm.strikerIdx].fours||0)+1;
+            if(runsOnBall===6)bt.players[nm.strikerIdx].sixes=(bt.players[nm.strikerIdx].sixes||0)+1;
+          }
+          if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].runsConceded=(bw.players[nm.currentBowlerIdx].runsConceded||0)+runsOnBall;
+        }
+
+        // ── Increment wicket
         bt.wickets++;
 
-        // ── Bowler credit (not for Run Out / Timed Out)
+        // ── Bowler credit
         if(dismissal!=="Run Out"&&dismissal!=="Timed Out"){
           nm.currentBowler.wickets=(nm.currentBowler.wickets||0)+1;
-          if(bw.players[nm.currentBowlerIdx])
-            bw.players[nm.currentBowlerIdx].wickets=nm.currentBowler.wickets;
+          if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].wickets=(bw.players[nm.currentBowlerIdx].wickets||0)+1;
         }
 
         // ── Fielder credit
@@ -2159,67 +2227,54 @@ export default function App(){
           }
         }
 
-        // ── Record wicket ball in over for display
+        // ── Record ball in over
         if(!bt.overs)bt.overs=[];
         if(!bt.overs.length)bt.overs.push([]);
-        const lastOver=bt.overs[bt.overs.length-1];
-        if(lastOver.length>0){
-          // Ball was already recorded by run button - mark it as wicket
-          lastOver[lastOver.length-1]={...lastOver[lastOver.length-1],type:"wicket"};
-        } else {
-          // No run button pressed before wicket - add ball and count it
-          lastOver.push({runs:0,type:"wicket"});
-          bt.balls++;
-          if(nm.currentBowler)nm.currentBowler.ballsBowled=(nm.currentBowler.ballsBowled||0)+1;
-          if(bw.players[nm.currentBowlerIdx])bw.players[nm.currentBowlerIdx].ballsBowled=(bw.players[nm.currentBowlerIdx].ballsBowled||0)+1;
+        bt.overs[bt.overs.length-1].push({runs:runsOnBall,type:"wicket"});
+
+        // ── Dismiss batter
+        if(bt.players[nm.strikerIdx]){
+          bt.players[nm.strikerIdx].dismissed=true;
+          bt.players[nm.strikerIdx].dismissal=dismissal;
+          bt.players[nm.strikerIdx].catchBy=fielder||"";
         }
-
-        // ── Dismiss the batter in players array
-        bt.players[nm.strikerIdx].dismissed=true;
-        bt.players[nm.strikerIdx].dismissal=dismissal;
-        bt.players[nm.strikerIdx].catchBy=fielder||"";
         if(!bt.fow)bt.fow=[];
-        bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx].name,over:overStr(bt.balls)});
-
-        // ── Update nm.striker to reflect dismissed state (fixes scorecard)
+        bt.fow.push({score:bt.score,name:bt.players[nm.strikerIdx]?.name||"",over:overStr(bt.balls)});
         nm.striker={...bt.players[nm.strikerIdx]};
 
-        try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx].name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
+        try{addComm(nm,`🔴 WICKET! ${bt.players[nm.strikerIdx]?.name} — ${dismissal}${fielder?` (${fielder})`:""}`);}catch{}
 
-        // ── Bring next batter if innings NOT over
-        const maxWickets=(nm.numPlayers||11)-1;
-        const inningsOver=bt.wickets>=maxWickets;
+        // ── Check innings over
+        const numP=nm.numPlayers||bt.players?.length||11;
+        const maxW=numP-1;
+        const inningsOver=bt.wickets>=maxW;
+        const overJustEnded=bt.balls>0&&bt.balls%6===0;
 
-        if(!inningsOver){
-          // ── Bring next batter in
+        if(inningsOver){
+          // ALL OUT - end innings
+          nm.inningsJustEnded=true;
+          nm.needBowler=false;
+          nm.pendingStrikeSwap=false;
+        } else {
+          // Bring next batter
           const next=nm.nextBatterIdx<bt.players.length?nm.nextBatterIdx:-1;
-          if(next>=0){
-            nm.strikerIdx=next;
-            nm.striker={...bt.players[next]};
-            nm.nextBatterIdx++;
-          }
-          // ── Over end: only trigger if last ball was a legal delivery
-          // The last ball in the over was already pushed by handleBall
-          // We check if bt.balls is divisible by 6 AND the last ball was legal
-          const lastBall=lastOver[lastOver.length-1];
-          const wasLegalBall=lastBall&&lastBall.type!=="wide"&&lastBall.type!=="noBall";
-          const overEnded=wasLegalBall&&bt.balls>0&&bt.balls%6===0;
-          if(overEnded){
-            bt.overs.push([]);
-            nm.needBowler=true;
-            // Swap strike at end of over
+          if(next>=0){nm.strikerIdx=next;nm.striker={...bt.players[next]};nm.nextBatterIdx++;}
+
+          if(overJustEnded){
+            bt.overs.push([]);nm.needBowler=true;
             const t=nm.striker;nm.striker=nm.nonStriker;nm.nonStriker=t;
             const ti=nm.strikerIdx;nm.strikerIdx=nm.nonStrikerIdx;nm.nonStrikerIdx=ti;
+          } else if(runsOnBall%2===1){
+            nm.pendingStrikeSwap=true;
           }
         }
 
         if(!nm.history)nm.history=[];
         nm.history.push({score:bt.score,balls:bt.balls,type:"wicket"});
         return nm;
-      }catch(e){console.error("confirmWicket error:",e);return m;}
+      }catch(e){console.error("confirmWicket:",e);return m;}
     });
   };
-
   const handleUndo=()=>{
     setMatch(m=>{
       if(!m.history.length)return m;
@@ -2272,45 +2327,51 @@ export default function App(){
     }catch{}
   };
 
-  const handleEndInnings=useCallback(()=>{
+  const handleEndInnings=()=>{
     setMatch(m=>{
       if(!m)return m;
       const nm=JSON.parse(JSON.stringify(m));
-      // Inline innings snapshot (saveInningsSnapshot removed)
+      // Save innings snapshot
       if(!nm.inningsHistory)nm.inningsHistory=[];
       const snap=nm.teams[nm.batting];
       const snapBowl=nm.teams[nm.bowling];
       nm.inningsHistory.push({
-        teamName:snap.name,
-        score:snap.score,wickets:snap.wickets,balls:snap.balls||0,
-        extras:{...snap.extras},
-        fow:[...(snap.fow||[])],
+        teamName:snap.name,score:snap.score,wickets:snap.wickets,balls:snap.balls||0,
+        extras:{...snap.extras},fow:[...(snap.fow||[])],
         players:snap.players.map(p=>({...p})),
         bowlers:snapBowl.players.filter(p=>(p.ballsBowled||0)>0).map(p=>({...p})),
       });
       const maxInnings=nm.format==="test"?3:1;
       if(nm.inning<maxInnings){
-        // For test: show innings break dialog before starting next innings
         if(nm.format==="test"){
           nm.needInningsBreak=true;
           nm.nextInningNum=nm.inning+1;
+          nm.inningsJustEnded=false;
           return nm;
         }
-        nm.inning++;const nb=nm.inning%2;const nw=1-nb;
+        // Limited overs: start 2nd innings immediately
+        nm.inning++;
+        const nb=nm.inning%2;const nw=1-nb;
         nm.batting=nb;nm.bowling=nw;
         const p=nm.teams[nb].players;
-        nm.striker={...p[0]};nm.strikerIdx=0;nm.nonStriker={...p[1]};nm.nonStrikerIdx=1;nm.nextBatterIdx=2;
-        nm.currentBowler={...nm.teams[nw].players[0]};nm.currentBowlerIdx=0;nm.needBowler=false;
+        nm.striker={...p[0]};nm.strikerIdx=0;
+        nm.nonStriker={...p[1]};nm.nonStrikerIdx=1;nm.nextBatterIdx=2;
+        nm.currentBowler={...nm.teams[nw].players[0]};nm.currentBowlerIdx=0;
+        nm.needBowler=true;
+        nm.inningsJustEnded=false;
         return nm;
       }
-      // For test last innings end - show break dialog too
+      // All innings done
       if(nm.format==="test"){
         nm.needInningsBreak=true;
         nm.nextInningNum=nm.inning+1;
         nm.isLastInnings=true;
+        nm.inningsJustEnded=false;
         return nm;
       }
-      nm.ended=true;return nm;
+      nm.ended=true;
+      nm.inningsJustEnded=false;
+      return nm;
     });
     setTimeout(()=>{
       setMatch(m=>{
@@ -2318,7 +2379,7 @@ export default function App(){
         return m;
       });
     },100);
-  },[]);
+  };
 
   const confirmBatterChange=({strikerIdx,nonStrikerIdx,newBowler})=>{
     setShowBatterChange(false);
@@ -2405,19 +2466,6 @@ export default function App(){
 
   useEffect(()=>{
     if(!match||match.ended)return;
-    const bt=match.teams?.[match.batting];
-    if(!bt)return;
-    const maxWickets=(match.numPlayers||11)-1;
-    const allOut=bt.wickets>=maxWickets;
-    const oversUp=match.format!=="test"&&bt.balls>=match.overs*6;
-
-    if(allOut||oversUp){
-      // Innings is definitively over - end it now
-      setShowBowlerSelect(false);
-      setShowStrikeSwap(false);
-      handleEndInnings();
-      return;
-    }
     if(match.needInningsBreak&&!showInningsBreak){setShowInningsBreak(true);return;}
     if(match.needBowler&&!showBowlerSelect)setShowBowlerSelect(true);
     if(match.pendingStrikeSwap&&!showStrikeSwap)setShowStrikeSwap(true);
@@ -2425,16 +2473,15 @@ export default function App(){
       setShowBatterChange(true);
       setMatch(m=>m?({...m,needBatterChange:false}):m);
     }
-  },[
-    match?.teams?.[0]?.wickets,match?.teams?.[1]?.wickets,
-    match?.teams?.[0]?.balls,match?.teams?.[1]?.balls,
-    match?.needBowler,match?.needInningsBreak,
-    match?.pendingStrikeSwap,match?.needBatterChange,
-    match?.batting,match?.ended
-  ]);
+  },[match?.needBowler,match?.needInningsBreak,match?.pendingStrikeSwap,match?.needBatterChange,match?.ended]);
 
-  // Innings end is handled via needInningsEnd flag in the main useEffect above
-
+  useEffect(()=>{
+    if(!match?.inningsJustEnded)return;
+    setShowBowlerSelect(false);
+    setShowStrikeSwap(false);
+    setMatch(m=>m?({...m,inningsJustEnded:false}):m);
+    handleEndInnings();
+  },[match?.inningsJustEnded]);
   const handleNewMatch=()=>{
     if(user)clearLiveMatch();
     localStorage.removeItem("cricscan_live");
