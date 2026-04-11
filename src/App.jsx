@@ -4,28 +4,53 @@ import { auth, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onA
 
 const FontLink = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Orbitron:wght@700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500;600;700&family=Orbitron:wght@700;900&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:#080c10; --bg2:#0e1318; --bg3:#151c24; --card:#111820; --border:#1e2d3d;
-      --accent:#00e5ff; --accent2:#ff6b35; --accent3:#39ff14; --gold:#ffd700;
-      --text:#e8f4f8; --muted:#4a6278; --danger:#ff3d5a; --rad:6px; --rad2:12px;
+      --bg:#04080f; --bg2:#070d17; --bg3:#0c1525; --card:#0d1a2e;
+      --border:#1a2e4a; --border2:#243d5e;
+      --accent:#00d4ff; --accent-dim:#0099bb;
+      --accent2:#ff6b35; --accent3:#00ff9d;
+      --gold:#ffc94d; --gold2:#e6a800;
+      --danger:#ff4060; --purple:#b16bff;
+      --text:#ddeeff; --text2:#aac4dd;
+      --muted:#4a6880; --muted2:#2e4a62;
+      --rad:8px; --rad2:14px; --rad3:20px;
     }
-    body { background:var(--bg); color:var(--text); font-family:"Barlow Condensed",sans-serif; overflow-x:hidden; }
-    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:var(--bg2)} ::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px}
-    .glow{text-shadow:0 0 18px var(--accent),0 0 40px var(--accent)}
+    body { background:var(--bg); color:var(--text); font-family:"DM Sans",sans-serif; overflow-x:hidden; }
+    ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-track{background:var(--bg2)} ::-webkit-scrollbar-thumb{background:linear-gradient(var(--accent),var(--purple));border-radius:2px}
+    .glow{text-shadow:0 0 20px var(--accent),0 0 50px rgba(0,212,255,0.4)}
+    .glow-gold{text-shadow:0 0 16px var(--gold),0 0 40px rgba(255,201,77,0.3)}
+    .glow-green{text-shadow:0 0 16px var(--accent3),0 0 40px rgba(0,255,157,0.3)}
     .glow-o{text-shadow:0 0 14px var(--accent2)}
-    @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,0.4)}50%{box-shadow:0 0 0 6px rgba(0,229,255,0)}}
-    @keyframes bounce-in{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-    .blink{animation:blink 1s infinite}
-    .bounce-in{animation:bounce-in 0.4s ease forwards}
-    input,select{outline:none}
-    .pill-btn{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-family:"Barlow Condensed";font-weight:700;font-size:13px;cursor:pointer;letter-spacing:1px;transition:all 0.15s}
-    .pill-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+    .card-glow{box-shadow:0 0 0 1px var(--border),0 8px 32px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.04)}
+    .card-glow-accent{box-shadow:0 0 0 1px var(--accent-dim),0 8px 32px rgba(0,212,255,0.12),inset 0 1px 0 rgba(0,212,255,0.08)}
+    .grad-text{background:linear-gradient(135deg,var(--accent) 0%,var(--purple) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .grad-text-gold{background:linear-gradient(135deg,var(--gold) 0%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .glass{background:rgba(13,26,46,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,0.5)}50%{box-shadow:0 0 0 10px rgba(0,212,255,0)}}
+    @keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(255,201,77,0.4)}50%{box-shadow:0 0 0 8px rgba(255,201,77,0)}}
+    @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,0.4)}50%{box-shadow:0 0 0 6px rgba(0,212,255,0)}}
+    @keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+    @keyframes bounce-in{0%{transform:scale(0.75);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+    @keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes score-pop{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+    .blink{animation:blink 1.4s infinite}
+    .bounce-in{animation:bounce-in 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards}
+    .float{animation:float 3s ease-in-out infinite}
+    .fade-in{animation:fadeIn 0.4s ease}
+    .pulse{animation:pulse-glow 2s infinite}
+    .pulse-gold{animation:pulse-gold 2s infinite}
+    button:active{transform:scale(0.96);transition:transform 0.1s}
+    input,select{outline:none;appearance:none;-webkit-appearance:none}
+    input:focus,select:focus{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(0,212,255,0.15)}
   `}</style>
 );
+
 
 const overStr = b => `${Math.floor(b/6)}.${b%6}`;
 const calcRR = (score,balls) => balls>0?((score/balls)*6).toFixed(2):"0.00";
@@ -52,7 +77,8 @@ const TableRow = ({cells,header}) => (
   </div>
 );
 function BallDot({ball}){
-  const c=ball.type==="wide"||ball.type==="noBall"?"var(--accent2)":ball.type==="wicket"?"var(--danger)":ball.runs===4?"var(--gold)":ball.runs===6?"var(--accent3)":ball.runs===0?"var(--muted)":"var(--accent)";
+  const c=ball.type==="wide"||ball.type==="noBall"?"var(--accent2)":ball.type==="wicket"?"var(--danger)":ball.runs===4?"var(--gold)":ball.runs===6?"var(--accent3)":ball.runs===0?"var(--muted2)":"var(--accent)";
+  const bg=ball.type==="wicket"?"rgba(255,64,96,0.2)":ball.runs===4?"rgba(255,201,77,0.15)":ball.runs===6?"rgba(0,255,157,0.15)":"rgba(255,255,255,0.04)";
   const label=ball.type==="wide"?"Wd":ball.type==="noBall"?"NB":ball.type==="wicket"?"W":ball.runs;
   return <div style={{width:26,height:26,borderRadius:"50%",border:`2px solid ${c}`,background:`${c}22`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Orbitron",fontSize:8,fontWeight:700,color:c,flexShrink:0}}>{label}</div>;
 }
@@ -161,20 +187,25 @@ function SplashScreen({onStart,onSignOut,user}){
   const [visible,setVisible]=useState(false);
   useEffect(()=>{setTimeout(()=>setVisible(true),100);},[]);
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at center,#0d1f30 0%,#080c10 60%,#040608 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 30%,#0a1e35 0%,#04080f 65%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
+      {/* Grid overlay */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px)",backgroundSize:"40px 40px",pointerEvents:"none"}}/>
+      {/* Glow orbs */}
+      <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,212,255,0.06) 0%,transparent 70%)",top:-100,left:"50%",transform:"translateX(-50%)",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(177,107,255,0.05) 0%,transparent 70%)",bottom:50,right:-50,pointerEvents:"none"}}/>
       {/* background glow orbs */}
       <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"rgba(0,229,255,0.04)",top:"10%",left:"50%",transform:"translateX(-50%)",filter:"blur(60px)",pointerEvents:"none"}}/>
       <div style={{position:"absolute",width:200,height:200,borderRadius:"50%",background:"rgba(255,107,53,0.05)",bottom:"20%",right:"10%",filter:"blur(40px)",pointerEvents:"none"}}/>
 
       <div style={{textAlign:"center",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(30px)",transition:"all 0.8s ease"}}>
         {/* Cricket bat icon */}
-        <div style={{fontSize:72,marginBottom:16,filter:"drop-shadow(0 0 20px rgba(0,229,255,0.4))"}}>🏏</div>
+        <div style={{fontSize:80,marginBottom:16,filter:"drop-shadow(0 0 30px rgba(0,212,255,0.8)) drop-shadow(0 0 60px rgba(0,212,255,0.3))"}} className="float">🏏</div>
 
         {/* CRICSCAN title */}
-        <div style={{fontFamily:"Orbitron",fontSize:38,fontWeight:900,letterSpacing:6,color:"var(--accent)",marginBottom:6,textShadow:"0 0 30px rgba(0,229,255,0.6),0 0 60px rgba(0,229,255,0.3)"}}>CRICSCAN</div>
+        <div style={{fontFamily:"Bebas Neue",fontSize:60,letterSpacing:8,color:"var(--accent)",marginBottom:4,textShadow:"0 0 40px rgba(0,212,255,0.7),0 0 80px rgba(0,212,255,0.3)",lineHeight:1}}>CRICSCAN</div>
 
         {/* Tagline */}
-        <div style={{fontFamily:"Barlow Condensed",fontSize:14,letterSpacing:4,color:"var(--muted)",marginBottom:6,textTransform:"uppercase"}}>AI Powered Cricket Scorer</div>
+        <div style={{fontFamily:"Space Mono",fontSize:10,letterSpacing:5,color:"var(--muted)",marginBottom:6,textTransform:"uppercase",background:"linear-gradient(135deg,var(--accent),var(--purple))",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>AI · POWERED · CRICKET · SCORER</div>
 
         {/* Divider */}
         <div style={{width:60,height:2,background:"linear-gradient(90deg,transparent,var(--accent),transparent)",margin:"16px auto 20px"}}/>
@@ -1295,7 +1326,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
       {notif&&<div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:notif.color,color:["var(--gold)","var(--accent3)"].includes(notif.color)?"#000":"#fff",padding:"9px 20px",borderRadius:30,fontFamily:"Orbitron",fontWeight:700,fontSize:14,zIndex:999,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}} className="bounce-in">{notif.msg}</div>}
 
       {/* ── HEADER ── */}
-      <div style={{background:"linear-gradient(180deg,#0d1f30,#0a1520)",borderBottom:"1px solid var(--border)",padding:"10px 14px 8px",flexShrink:0}}>
+      <div style={{background:"linear-gradient(180deg,#071528,#04080f)",borderBottom:"1px solid var(--border)",padding:"10px 14px 8px",flexShrink:0}}>
         {/* Toss strip */}
         {match.toss&&<div style={{fontSize:10,color:"var(--muted)",background:"rgba(255,215,0,0.05)",borderRadius:4,padding:"3px 8px",marginBottom:6,fontFamily:"Barlow Condensed",letterSpacing:1}}>🪙 {match.toss}</div>}
 
@@ -1314,8 +1345,8 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         {/* Score */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:4}}>
           <div>
-            <div style={{fontFamily:"Orbitron",fontSize:42,fontWeight:900,color:"#fff",lineHeight:1}}>
-              {bt.score}<span style={{color:"var(--danger)",fontSize:24}}>/{bt.wickets}</span>
+            <div style={{fontFamily:"Bebas Neue",fontSize:64,color:"var(--text)",lineHeight:0.9,letterSpacing:2,textShadow:"0 2px 20px rgba(0,212,255,0.3)"}}>
+              {bt.score}<span style={{color:"var(--danger)",fontSize:36,opacity:0.9}}>/{bt.wickets}</span>
             </div>
             <div style={{color:"var(--muted)",fontSize:12,marginTop:2,display:"flex",gap:10}}>
               <span>{overStr(bt.balls)} ov</span>
@@ -1418,7 +1449,14 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         {/* Run buttons */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:8}}>
           {[0,1,2,3,4,6].map(r=>(
-            <button key={r} onClick={()=>handleRun(r,extraType||"normal")} style={{padding:"17px 0",background:r===4?"rgba(255,215,0,0.1)":r===6?"rgba(57,255,20,0.1)":"var(--bg3)",color:r===4?"var(--gold)":r===6?"var(--accent3)":"var(--text)",border:`2px solid ${r===4?"rgba(255,215,0,0.5)":r===6?"rgba(57,255,20,0.5)":"var(--border)"}`,borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:900,fontSize:r===6?28:r===4?22:20,cursor:"pointer"}}>
+            <button key={r} onClick={()=>handleRun(r,extraType||"normal")}
+              style={{padding:"18px 0",
+                background:r===4?"linear-gradient(135deg,rgba(255,201,77,0.15),rgba(255,201,77,0.05))":r===6?"linear-gradient(135deg,rgba(0,255,157,0.15),rgba(0,255,157,0.05))":"linear-gradient(135deg,var(--bg3),var(--bg2))",
+                color:r===4?"var(--gold)":r===6?"var(--accent3)":r===0?"var(--muted)":"var(--text)",
+                border:`1px solid ${r===4?"rgba(255,201,77,0.4)":r===6?"rgba(0,255,157,0.4)":"var(--border2)"}`,
+                borderRadius:"var(--rad2)",fontFamily:"Bebas Neue",fontSize:r===6?34:r===4?26:22,
+                letterSpacing:1,cursor:"pointer",
+                boxShadow:r===4?"0 0 20px rgba(255,201,77,0.1)":r===6?"0 0 20px rgba(0,255,157,0.1)":"none"}}>
               {r===0?"•":r}
             </button>
           ))}
@@ -1435,7 +1473,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
 
         {/* Actions */}
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:7,marginBottom:8}}>
-          <button onClick={onWicket} style={{padding:"14px 0",background:"rgba(255,61,90,0.12)",color:"var(--danger)",border:"2px solid rgba(255,61,90,0.5)",borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>🔴 WICKET</button>
+          <button onClick={onWicket} style={{padding:"14px 0",background:"linear-gradient(135deg,rgba(255,64,96,0.2),rgba(255,64,96,0.05))",color:"var(--danger)",border:"1px solid rgba(255,64,96,0.5)",borderRadius:"var(--rad2)",fontFamily:"Bebas Neue",fontSize:18,letterSpacing:2,cursor:"pointer",boxShadow:"0 0 20px rgba(255,64,96,0.15)"}}>🔴 WICKET</button>
           <button onClick={onUndo} style={{padding:"14px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>↩ UNDO</button>
           <button onClick={()=>setShowMenu(s=>!s)} style={{padding:"14px 0",background:showMenu?"rgba(0,229,255,0.08)":"var(--bg3)",color:showMenu?"var(--accent)":"var(--muted)",border:`1px solid ${showMenu?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:18,cursor:"pointer"}}>⚙️</button>
         </div>
@@ -1800,12 +1838,12 @@ function ResultScreen({match,onNewMatch,onShare}){
   const tabs=["awards",...(isTest?innings.map((_,i)=>`inn${i}`):[])];
 
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at top,#0d2030 0%,#080c10 70%)",display:"flex",flexDirection:"column",paddingBottom:30}}>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 0%,#0d2035 0%,#04080f 60%)",display:"flex",flexDirection:"column",paddingBottom:30}}>
 
       {/* Result banner */}
       <div style={{textAlign:"center",padding:"24px 18px 16px",animation:"fadeInUp 0.5s ease"}}>
         <div style={{fontSize:50,marginBottom:8}}>🏆</div>
-        <div style={{fontFamily:"Orbitron",fontSize:20,color:"var(--gold)",marginBottom:10,lineHeight:1.3}} className="glow-o">{result}</div>
+        <div style={{fontFamily:"Bebas Neue",fontSize:32,color:"var(--gold)",marginBottom:10,lineHeight:1.1,letterSpacing:2}} className="glow-o">{result}</div>
         <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
           {[t0,t1].map((t,i)=>(<div key={i} style={{background:"var(--card)",borderRadius:"var(--rad)",padding:"8px 14px",border:"1px solid var(--border)",textAlign:"center"}}>
             <div style={{fontSize:10,color:"var(--muted)",fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{t.name}</div>
