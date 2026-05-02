@@ -4,8 +4,8 @@
   "description": "AI-powered cricket scoring app with camera detection",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#080c10",
-  "theme_color": "#00e5ff",
+  "background_color": "#07100c",
+  "theme_color": "#7CFF6B",
   "orientation": "portrait",
   "icons": [
     {

@@ -11,16 +11,32 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
+const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.messagingSenderId &&
+  firebaseConfig.appId
+);
 
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
-export const signInWithEmail = (email, password) => signInWithEmailAndPassword(auth, email, password);
-export const registerWithEmail = (email, password) => createUserWithEmailAndPassword(auth, email, password);
-export const logOut = () => signOut(auth);
-export const onAuthChange = (cb) => onAuthStateChanged(auth, cb);
+export const isFirebaseConfigured = hasFirebaseConfig;
+const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+const googleProvider = app ? new GoogleAuthProvider() : null;
+
+const missingConfigError = () => Promise.reject(new Error("Firebase is not configured for this local preview."));
+
+export const signInWithGoogle = () => auth ? signInWithPopup(auth, googleProvider) : missingConfigError();
+export const signInWithEmail = (email, password) => auth ? signInWithEmailAndPassword(auth, email, password) : missingConfigError();
+export const registerWithEmail = (email, password) => auth ? createUserWithEmailAndPassword(auth, email, password) : missingConfigError();
+export const logOut = () => auth ? signOut(auth) : Promise.resolve();
+export const onAuthChange = (cb) => {
+  if (!auth) {
+    cb(null);
+    return () => {};
+  }
+  return onAuthStateChanged(auth, cb);
+};
 
 export const saveLiveMatch = (match) => {
   try { localStorage.setItem("cricscan_live", JSON.stringify(match)); } catch {}
@@ -43,7 +59,7 @@ export const saveMatch = async (record, userId, userEmail) => {
     prev.push(record);
     localStorage.setItem("cricscan_history", JSON.stringify(prev));
   } catch {}
-  if (userId) {
+  if (db && userId) {
     try {
       await addDoc(collection(db, "matches"), { ...record, userId, userEmail, createdAt: new Date().toISOString() });
     } catch (e) { console.log("Firestore save failed, saved locally", e); }
@@ -53,7 +69,7 @@ export const saveMatch = async (record, userId, userEmail) => {
 export const getMatchHistory = async (userId) => {
   let local = [];
   try { local = JSON.parse(localStorage.getItem("cricscan_history") || "[]").reverse(); } catch {}
-  if (!userId) return local;
+  if (!db || !userId) return local;
   try {
     const q = query(collection(db, "matches"), where("userId", "==", userId), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
@@ -71,7 +87,7 @@ export const deleteMatch = async (id, firestoreId) => {
     const prev = JSON.parse(localStorage.getItem("cricscan_history") || "[]");
     localStorage.setItem("cricscan_history", JSON.stringify(prev.filter(r => r.id !== id)));
   } catch {}
-  if (firestoreId) {
+  if (db && firestoreId) {
     try { await deleteDoc(doc(db, "matches", firestoreId)); } catch {}
   }
 };

@@ -1,38 +1,77 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import html2canvas from "html2canvas";
-import { auth, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, getLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase.js";
+import { auth, db, isFirebaseConfigured, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, getLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase.js";
 
 const FontLink = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500;600;700&family=Orbitron:wght@700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Saira+Condensed:wght@500;600;700;800&family=Sora:wght@600;700;800&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:#04080f; --bg2:#070d17; --bg3:#0c1525; --card:#0d1a2e;
-      --border:#1a2e4a; --border2:#243d5e;
-      --accent:#00d4ff; --accent-dim:#0099bb;
-      --accent2:#ff6b35; --accent3:#00ff9d;
-      --gold:#ffc94d; --gold2:#e6a800;
-      --danger:#ff4060; --purple:#b16bff;
-      --text:#ddeeff; --text2:#aac4dd;
-      --muted:#4a6880; --muted2:#2e4a62;
+      --bg:#06110d; --bg2:#0b1a13; --bg3:#10281d; --card:#0f2d20;
+      --border:#2f5d47; --border2:#4a8368;
+      --accent:#7CFF6B; --accent-dim:#43d84e;
+      --accent2:#ff7a45; --accent3:#5fd8ff;
+      --gold:#f4c95d; --gold2:#c9972c;
+      --danger:#ff4d6d; --purple:#9f7aea;
+      --text:#f8fff5; --text2:#d9f7d0;
+      --muted:#a9c79e; --muted2:#4e7047;
       --rad:8px; --rad2:14px; --rad3:20px;
     }
-    body { background:var(--bg); color:var(--text); font-family:"DM Sans",sans-serif; overflow-x:hidden; }
-    ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-track{background:var(--bg2)} ::-webkit-scrollbar-thumb{background:linear-gradient(var(--accent),var(--purple));border-radius:2px}
-    .glow{text-shadow:0 0 20px var(--accent),0 0 50px rgba(0,212,255,0.4)}
-    .glow-gold{text-shadow:0 0 16px var(--gold),0 0 40px rgba(255,201,77,0.3)}
-    .glow-green{text-shadow:0 0 16px var(--accent3),0 0 40px rgba(0,255,157,0.3)}
+    html{min-height:100%;background:#06110d}
+    body {
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 50% -12%, rgba(124,255,107,0.24), transparent 34%),
+        linear-gradient(180deg,#0a1d10 0%,#0a1710 48%,#050806 100%);
+      color:var(--text);
+      font-family:"Manrope",sans-serif;
+      overflow-x:hidden;
+      font-feature-settings:"ss01" 1,"cv05" 1;
+    }
+    body::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:-2;
+      pointer-events:none;
+      background:
+        linear-gradient(115deg,rgba(124,255,107,0.12) 0 12%,transparent 12% 24%,rgba(244,201,93,0.055) 24% 36%,transparent 36% 48%),
+        radial-gradient(circle at 18% 8%,rgba(124,255,107,0.16),transparent 30%),
+        radial-gradient(circle at 85% 0%,rgba(255,122,69,0.1),transparent 28%),
+        linear-gradient(180deg,#08140e 0%,#07100c 52%,#030604 100%);
+      background-size:260px 260px,100% 100%,100% 100%,100% 100%;
+    }
+    body::after {
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:-1;
+      pointer-events:none;
+      background:
+        linear-gradient(rgba(236,255,246,0.035) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(236,255,246,0.025) 1px,transparent 1px);
+      background-size:28px 28px;
+      mask-image:linear-gradient(to bottom,rgba(0,0,0,0.75),transparent 80%);
+    }
+    #root{min-height:100vh;background:#06110d}
+    button{border-radius:12px!important}
+    input,select{border-radius:12px!important}
+    ::selection{background:rgba(124,255,107,0.3);color:var(--text)}
+    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:var(--bg2)} ::-webkit-scrollbar-thumb{background:linear-gradient(var(--accent),var(--gold));border-radius:2px}
+    .glow{text-shadow:0 0 18px rgba(124,255,107,0.85),0 0 44px rgba(124,255,107,0.28)}
+    .glow-gold{text-shadow:0 0 16px var(--gold),0 0 36px rgba(244,201,93,0.26)}
+    .glow-green{text-shadow:0 0 16px var(--accent),0 0 38px rgba(124,255,107,0.3)}
     .glow-o{text-shadow:0 0 14px var(--accent2)}
-    .card-glow{box-shadow:0 0 0 1px var(--border),0 8px 32px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.04)}
-    .card-glow-accent{box-shadow:0 0 0 1px var(--accent-dim),0 8px 32px rgba(0,212,255,0.12),inset 0 1px 0 rgba(0,212,255,0.08)}
-    .grad-text{background:linear-gradient(135deg,var(--accent) 0%,var(--purple) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .card-glow{box-shadow:0 0 0 1px var(--border),0 14px 34px rgba(0,0,0,0.48),inset 0 1px 0 rgba(255,255,255,0.05)}
+    .card-glow-accent{box-shadow:0 0 0 1px var(--accent-dim),0 12px 32px rgba(124,255,107,0.14),inset 0 1px 0 rgba(124,255,107,0.08)}
+    .grad-text{background:linear-gradient(135deg,var(--accent) 0%,var(--accent3) 55%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
     .grad-text-gold{background:linear-gradient(135deg,var(--gold) 0%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-    .glass{background:rgba(13,26,46,0.7);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+    .glass{background:rgba(16,37,28,0.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
     @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-    @keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,0.5)}50%{box-shadow:0 0 0 10px rgba(0,212,255,0)}}
-    @keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(255,201,77,0.4)}50%{box-shadow:0 0 0 8px rgba(255,201,77,0)}}
-    @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,0.4)}50%{box-shadow:0 0 0 6px rgba(0,212,255,0)}}
+    @keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(124,255,107,0.45)}50%{box-shadow:0 0 0 10px rgba(124,255,107,0)}}
+    @keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(244,201,93,0.38)}50%{box-shadow:0 0 0 8px rgba(244,201,93,0)}}
+    @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(124,255,107,0.4)}50%{box-shadow:0 0 0 6px rgba(124,255,107,0)}}
     @keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
     @keyframes bounce-in{0%{transform:scale(0.75);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
@@ -47,7 +86,10 @@ const FontLink = () => (
     .pulse-gold{animation:pulse-gold 2s infinite}
     button:active{transform:scale(0.96);transition:transform 0.1s}
     input,select{outline:none;appearance:none;-webkit-appearance:none}
-    input:focus,select:focus{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(0,212,255,0.15)}
+    input:focus,select:focus{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(124,255,107,0.18)}
+    [style*="Orbitron"],[style*="Bebas Neue"]{font-family:"Sora",sans-serif!important}
+    [style*="Barlow Condensed"],[style*="Rajdhani"],[style*="DM Sans"],[style*="Space Mono"]{font-family:"Saira Condensed",sans-serif!important}
+    button,input,select{font-family:"Saira Condensed",sans-serif}
   `}</style>
 );
 
@@ -132,7 +174,7 @@ function LoginScreen({onLogin}){
   };
 
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at center,#0d1f30 0%,#080c10 70%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px"}}>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at center,#10281d 0%,#07100c 70%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px"}}>
       <div style={{width:"100%",maxWidth:380,animation:"fadeInUp 0.5s ease"}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:32}}>
@@ -166,7 +208,7 @@ function LoginScreen({onLogin}){
 
         {error&&<div style={{color:"var(--danger)",fontSize:13,fontFamily:"Barlow Condensed",marginBottom:10,padding:"8px 12px",background:"rgba(255,61,90,0.1)",borderRadius:"var(--rad)",border:"1px solid rgba(255,61,90,0.3)"}}>{error}</div>}
 
-        <button onClick={handleEmail} disabled={loading||!email||!pass} style={{width:"100%",padding:"13px 0",background:email&&pass?"linear-gradient(135deg,var(--accent),#0099bb)":"var(--bg3)",color:email&&pass?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,cursor:email&&pass?"pointer":"default",marginBottom:16,opacity:loading?0.7:1}}>
+        <button onClick={handleEmail} disabled={loading||!email||!pass} style={{width:"100%",padding:"13px 0",background:email&&pass?"linear-gradient(135deg,var(--accent),#43d84e)":"var(--bg3)",color:email&&pass?"#000":"var(--muted)",border:"none",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,cursor:email&&pass?"pointer":"default",marginBottom:16,opacity:loading?0.7:1}}>
           {loading?"LOADING...":(mode==="register"?"CREATE ACCOUNT →":"SIGN IN →")}
         </button>
 
@@ -187,22 +229,22 @@ function SplashScreen({onStart,onSignOut,user}){
   const [visible,setVisible]=useState(false);
   useEffect(()=>{setTimeout(()=>setVisible(true),100);},[]);
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 30%,#0a1e35 0%,#04080f 65%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 30%,#10281d 0%,#050806 65%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
       {/* Grid overlay */}
-      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px)",backgroundSize:"40px 40px",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(124,255,107,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,255,107,0.03) 1px,transparent 1px)",backgroundSize:"40px 40px",pointerEvents:"none"}}/>
       {/* Glow orbs */}
-      <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,212,255,0.06) 0%,transparent 70%)",top:-100,left:"50%",transform:"translateX(-50%)",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(124,255,107,0.06) 0%,transparent 70%)",top:-100,left:"50%",transform:"translateX(-50%)",pointerEvents:"none"}}/>
       <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(177,107,255,0.05) 0%,transparent 70%)",bottom:50,right:-50,pointerEvents:"none"}}/>
       {/* background glow orbs */}
-      <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"rgba(0,229,255,0.04)",top:"10%",left:"50%",transform:"translateX(-50%)",filter:"blur(60px)",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"rgba(124,255,107,0.04)",top:"10%",left:"50%",transform:"translateX(-50%)",filter:"blur(60px)",pointerEvents:"none"}}/>
       <div style={{position:"absolute",width:200,height:200,borderRadius:"50%",background:"rgba(255,107,53,0.05)",bottom:"20%",right:"10%",filter:"blur(40px)",pointerEvents:"none"}}/>
 
       <div style={{textAlign:"center",opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(30px)",transition:"all 0.8s ease"}}>
         {/* Cricket bat icon */}
-        <div style={{fontSize:80,marginBottom:16,filter:"drop-shadow(0 0 30px rgba(0,212,255,0.8)) drop-shadow(0 0 60px rgba(0,212,255,0.3))"}} className="float">🏏</div>
+        <div style={{fontSize:80,marginBottom:16,filter:"drop-shadow(0 0 30px rgba(124,255,107,0.8)) drop-shadow(0 0 60px rgba(124,255,107,0.3))"}} className="float">🏏</div>
 
         {/* CRICSCAN title */}
-        <div style={{fontFamily:"Bebas Neue",fontSize:60,letterSpacing:8,color:"var(--accent)",marginBottom:4,textShadow:"0 0 40px rgba(0,212,255,0.7),0 0 80px rgba(0,212,255,0.3)",lineHeight:1}}>CRICSCAN</div>
+        <div style={{fontFamily:"Bebas Neue",fontSize:60,letterSpacing:8,color:"var(--accent)",marginBottom:4,textShadow:"0 0 40px rgba(124,255,107,0.7),0 0 80px rgba(124,255,107,0.3)",lineHeight:1}}>CRICSCAN</div>
 
         {/* Tagline */}
         <div style={{fontFamily:"Space Mono",fontSize:10,letterSpacing:5,color:"var(--muted)",marginBottom:6,textTransform:"uppercase",background:"linear-gradient(135deg,var(--accent),var(--purple))",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>AI · POWERED · CRICKET · SCORER</div>
@@ -216,9 +258,9 @@ function SplashScreen({onStart,onSignOut,user}){
         </div>
 
         {/* CTA Button */}
-        <button onClick={onStart} style={{padding:"16px 44px",background:"linear-gradient(135deg,#ffd700,#ffaa00)",color:"#000",fontFamily:"Orbitron",fontWeight:900,fontSize:15,letterSpacing:3,border:"none",borderRadius:50,cursor:"pointer",boxShadow:"0 0 30px rgba(255,215,0,0.4),0 4px 20px rgba(0,0,0,0.4)",transform:"scale(1)",transition:"transform 0.15s,box-shadow 0.15s",animation:"pulse-border 2s infinite"}}
-          onMouseEnter={e=>{e.target.style.transform="scale(1.05)";e.target.style.boxShadow="0 0 40px rgba(255,215,0,0.6),0 6px 24px rgba(0,0,0,0.5)";}}
-          onMouseLeave={e=>{e.target.style.transform="scale(1)";e.target.style.boxShadow="0 0 30px rgba(255,215,0,0.4),0 4px 20px rgba(0,0,0,0.4)";}}>
+        <button onClick={onStart} style={{padding:"16px 44px",background:"linear-gradient(135deg,#f4c95d,#c9972c)",color:"#000",fontFamily:"Orbitron",fontWeight:900,fontSize:15,letterSpacing:3,border:"none",borderRadius:50,cursor:"pointer",boxShadow:"0 0 30px rgba(244,201,93,0.4),0 4px 20px rgba(0,0,0,0.4)",transform:"scale(1)",transition:"transform 0.15s,box-shadow 0.15s",animation:"pulse-border 2s infinite"}}
+          onMouseEnter={e=>{e.target.style.transform="scale(1.05)";e.target.style.boxShadow="0 0 40px rgba(244,201,93,0.6),0 6px 24px rgba(0,0,0,0.5)";}}
+          onMouseLeave={e=>{e.target.style.transform="scale(1)";e.target.style.boxShadow="0 0 30px rgba(244,201,93,0.4),0 4px 20px rgba(0,0,0,0.4)";}}>
           LET'S GET STARTED! ▶
         </button>
 
@@ -273,7 +315,7 @@ function CoinTossScreen({ team1, team2, onComplete }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at center,#0d1f30 0%,#080c10 80%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at center,#10281d 0%,#07100c 80%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 16, letterSpacing: 3, marginBottom: 24 }} className="glow">🪙 TOSS</div>
 
       {step === "who" && (
@@ -281,7 +323,7 @@ function CoinTossScreen({ team1, team2, onComplete }) {
           <div style={{ color: "var(--muted)", fontSize: 14, textAlign: "center", marginBottom: 20, fontFamily: "Barlow Condensed", letterSpacing: 1 }}>WHO IS CALLING THE TOSS?</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[team1, team2].map((t, i) => (
-              <button key={i} onClick={() => setCaller(i)} style={{ padding: "16px 0", background: caller === i ? "rgba(0,229,255,0.12)" : "var(--card)", color: caller === i ? "var(--accent)" : "var(--text)", border: `2px solid ${caller === i ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 2 }}>{t}</button>
+              <button key={i} onClick={() => setCaller(i)} style={{ padding: "16px 0", background: caller === i ? "rgba(124,255,107,0.12)" : "var(--card)", color: caller === i ? "var(--accent)" : "var(--text)", border: `2px solid ${caller === i ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 14, cursor: "pointer", letterSpacing: 2 }}>{t}</button>
             ))}
           </div>
           {caller !== null && (
@@ -289,13 +331,13 @@ function CoinTossScreen({ team1, team2, onComplete }) {
               <div style={{ color: "var(--muted)", fontSize: 13, textAlign: "center", marginBottom: 14, fontFamily: "Barlow Condensed", letterSpacing: 1 }}>{[team1, team2][caller].toUpperCase()} CALLS:</div>
               <div style={{ display: "flex", gap: 12 }}>
                 {["heads", "tails"].map(c => (
-                  <button key={c} onClick={() => setCallerChoice(c)} style={{ flex: 1, padding: "14px 0", background: callerChoice === c ? "rgba(255,215,0,0.15)" : "var(--bg3)", color: callerChoice === c ? "var(--gold)" : "var(--muted)", border: `2px solid ${callerChoice === c ? "var(--gold)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase" }}>{c === "heads" ? "👑 HEADS" : "🔵 TAILS"}</button>
+                  <button key={c} onClick={() => setCallerChoice(c)} style={{ flex: 1, padding: "14px 0", background: callerChoice === c ? "rgba(244,201,93,0.15)" : "var(--bg3)", color: callerChoice === c ? "var(--gold)" : "var(--muted)", border: `2px solid ${callerChoice === c ? "var(--gold)" : "var(--border)"}`, borderRadius: "var(--rad2)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 15, cursor: "pointer", letterSpacing: 1, textTransform: "uppercase" }}>{c === "heads" ? "👑 HEADS" : "🔵 TAILS"}</button>
                 ))}
               </div>
             </div>
           )}
           {caller !== null && callerChoice && (
-            <button onClick={() => setStep("flip")} style={{ width: "100%", marginTop: 20, padding: "14px 0", background: "linear-gradient(135deg,var(--gold),#cc9900)", color: "#000", fontFamily: "Orbitron", fontWeight: 700, fontSize: 14, letterSpacing: 2, border: "none", borderRadius: "var(--rad)", cursor: "pointer" }}>
+            <button onClick={() => setStep("flip")} style={{ width: "100%", marginTop: 20, padding: "14px 0", background: "linear-gradient(135deg,var(--gold),#c9972c)", color: "#000", fontFamily: "Orbitron", fontWeight: 700, fontSize: 14, letterSpacing: 2, border: "none", borderRadius: "var(--rad)", cursor: "pointer" }}>
               FLIP THE COIN →
             </button>
           )}
@@ -306,7 +348,7 @@ function CoinTossScreen({ team1, team2, onComplete }) {
         <div style={{ textAlign: "center", animation: "fadeInUp 0.3s ease" }}>
           <div style={{ fontSize: 14, color: "var(--muted)", fontFamily: "Barlow Condensed", marginBottom: 30, letterSpacing: 1 }}>{[team1, team2][caller]} called <b style={{ color: "var(--gold)" }}>{callerChoice?.toUpperCase()}</b></div>
           <div onClick={!flipping ? flipCoin : undefined}
-            style={{ width: 140, height: 140, borderRadius: "50%", background: flipping ? "conic-gradient(var(--gold),#cc9900,var(--gold))" : "linear-gradient(135deg,var(--gold),#cc9900)", margin: "0 auto 30px", display: "flex", alignItems: "center", justifyContent: "center", cursor: flipping ? "default" : "pointer", fontSize: 60, boxShadow: "0 0 40px rgba(255,215,0,0.4)", animation: flipping ? "spin 0.3s linear infinite" : "none", transition: "transform 0.2s" }}>
+            style={{ width: 140, height: 140, borderRadius: "50%", background: flipping ? "conic-gradient(var(--gold),#c9972c,var(--gold))" : "linear-gradient(135deg,var(--gold),#c9972c)", margin: "0 auto 30px", display: "flex", alignItems: "center", justifyContent: "center", cursor: flipping ? "default" : "pointer", fontSize: 60, boxShadow: "0 0 40px rgba(244,201,93,0.4)", animation: flipping ? "spin 0.3s linear infinite" : "none", transition: "transform 0.2s" }}>
             {flipping ? "🌀" : "🪙"}
           </div>
           <style>{`@keyframes spin { from{transform:rotateY(0)} to{transform:rotateY(360deg)} }`}</style>
@@ -329,7 +371,7 @@ function CoinTossScreen({ team1, team2, onComplete }) {
             {won ? [team1, team2][caller] : [team1, team2][1 - caller]} — CHOOSE TO:
           </div>
           <div style={{ display: "flex", gap: 12 }}>
-            <button onClick={() => handleChoice("bat")} style={{ flex: 1, padding: "16px 0", background: "rgba(0,229,255,0.1)", color: "var(--accent)", border: "2px solid var(--accent)", borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>🏏 BAT FIRST</button>
+            <button onClick={() => handleChoice("bat")} style={{ flex: 1, padding: "16px 0", background: "rgba(124,255,107,0.1)", color: "var(--accent)", border: "2px solid var(--accent)", borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>🏏 BAT FIRST</button>
             <button onClick={() => handleChoice("bowl")} style={{ flex: 1, padding: "16px 0", background: "rgba(255,107,53,0.1)", color: "var(--accent2)", border: "2px solid var(--accent2)", borderRadius: "var(--rad2)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: 1 }}>🎳 BOWL FIRST</button>
           </div>
         </div>
@@ -392,7 +434,7 @@ function LiveMatchesBrowser({ currentUser, onWatch, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--bg)", zIndex: 400, display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg,#0a1520,#0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+      <div style={{ background: "linear-gradient(135deg,#0d1a14,#10281d)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
         <div>
           <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2 }}>📡 LIVE MATCHES</div>
@@ -455,7 +497,7 @@ function LiveMatchesBrowser({ currentUser, onWatch, onClose }) {
               {/* Score display */}
               <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
                 {m.teams?.map((t, i) => (
-                  <div key={i} style={{ flex: 1, background: m.batting === i ? "rgba(0,229,255,0.06)" : "var(--bg3)", borderRadius: "var(--rad)", padding: "10px 12px", border: `1px solid ${m.batting === i ? "var(--accent)" : "var(--border)"}` }}>
+                  <div key={i} style={{ flex: 1, background: m.batting === i ? "rgba(124,255,107,0.06)" : "var(--bg3)", borderRadius: "var(--rad)", padding: "10px 12px", border: `1px solid ${m.batting === i ? "var(--accent)" : "var(--border)"}` }}>
                     <div style={{ fontSize: 10, color: m.batting === i ? "var(--accent)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>
                       {t.name} {m.batting === i ? "🏏" : "🎳"}
                     </div>
@@ -481,7 +523,7 @@ function LiveMatchesBrowser({ currentUser, onWatch, onClose }) {
               </div>
 
               {/* Watch button */}
-              <button style={{ width: "100%", padding: "9px 0", background: "rgba(0,229,255,0.08)", color: "var(--accent)", border: "1px solid rgba(0,229,255,0.3)", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 11, cursor: "pointer", letterSpacing: 1 }}>
+              <button style={{ width: "100%", padding: "9px 0", background: "rgba(124,255,107,0.08)", color: "var(--accent)", border: "1px solid rgba(124,255,107,0.3)", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 11, cursor: "pointer", letterSpacing: 1 }}>
                 📺 WATCH LIVE
               </button>
             </div>
@@ -538,7 +580,7 @@ function LiveScoreViewer({ matchId, onClose }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      <div style={{ background: "linear-gradient(135deg,#0a1520,#0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ background: "linear-gradient(135deg,#0d1a14,#10281d)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 22, cursor: "pointer" }}>←</button>
         <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2 }}>📡 LIVE SCORE</div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--accent3)", fontFamily: "Barlow Condensed", fontWeight: 700 }}>
@@ -599,7 +641,7 @@ function ShareScorecard({ match, onClose }) {
     setSharing(true);
     try {
       const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#080c10",
+        backgroundColor: "#07100c",
         scale: 2,
         logging: false,
         useCORS: true,
@@ -637,7 +679,7 @@ function ShareScorecard({ match, onClose }) {
         <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2, marginBottom: 14, textAlign: "center" }}>SHARE SCORECARD</div>
 
         {/* Scorecard preview card */}
-        <div ref={cardRef} style={{ background: "linear-gradient(135deg,#0a1f30,#080c10)", border: "1px solid var(--border)", borderRadius: 16, padding: 20, marginBottom: 16 }}>
+        <div ref={cardRef} style={{ background: "linear-gradient(135deg,#10281d,#07100c)", border: "1px solid var(--border)", borderRadius: 16, padding: 20, marginBottom: 16 }}>
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 16 }}>
             <div style={{ fontFamily: "Orbitron", fontSize: 18, color: "var(--accent)", letterSpacing: 3, marginBottom: 4 }}>🏏 CRICSCAN</div>
@@ -678,7 +720,7 @@ function ShareScorecard({ match, onClose }) {
 
         {/* Action buttons */}
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-          <button onClick={doShare} disabled={sharing} style={{ flex: 1, padding: "13px 0", background: sharing ? "var(--bg3)" : "linear-gradient(135deg,var(--accent),#0099bb)", color: sharing ? "var(--muted)" : "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 12, cursor: sharing ? "default" : "pointer", letterSpacing: 1 }}>
+          <button onClick={doShare} disabled={sharing} style={{ flex: 1, padding: "13px 0", background: sharing ? "var(--bg3)" : "linear-gradient(135deg,var(--accent),#43d84e)", color: sharing ? "var(--muted)" : "#000", border: "none", borderRadius: "var(--rad)", fontFamily: "Orbitron", fontWeight: 700, fontSize: 12, cursor: sharing ? "default" : "pointer", letterSpacing: 1 }}>
             {sharing ? "..." : shared ? "✓ SHARED!" : "📤 SHARE"}
           </button>
           <button onClick={copyLink} style={{ flex: 1, padding: "13px 0", background: "var(--bg3)", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: "var(--rad)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
@@ -772,7 +814,7 @@ function RulesScreen({ onBack }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      <div style={{ background: "linear-gradient(135deg,#0a1520,#0d1f2e)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+      <div style={{ background: "linear-gradient(135deg,#0d1a14,#10281d)", borderBottom: "1px solid var(--border)", padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>←</button>
         <div style={{ fontFamily: "Orbitron", color: "var(--accent)", fontSize: 13, letterSpacing: 2 }}>📖 CRICKET RULES</div>
         <div style={{ marginLeft: "auto", fontSize: 10, color: "var(--muted)", fontFamily: "Barlow Condensed" }}>BCCI / ICC</div>
@@ -790,7 +832,7 @@ function RulesScreen({ onBack }) {
 
       {/* Category pills */}
       <div style={{ display: "flex", gap: 6, padding: "8px 14px", overflowX: "auto", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        <button onClick={() => setSelectedCat(null)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${!selectedCat ? "var(--accent)" : "var(--border)"}`, background: !selectedCat ? "rgba(0,229,255,0.1)" : "var(--bg3)", color: !selectedCat ? "var(--accent)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: 1 }}>ALL</button>
+        <button onClick={() => setSelectedCat(null)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${!selectedCat ? "var(--accent)" : "var(--border)"}`, background: !selectedCat ? "rgba(124,255,107,0.1)" : "var(--bg3)", color: !selectedCat ? "var(--accent)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: 1 }}>ALL</button>
         {CRICKET_RULES.map(cat => (
           <button key={cat.cat} onClick={() => setSelectedCat(selectedCat === cat.cat ? null : cat.cat)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${selectedCat === cat.cat ? "var(--accent2)" : "var(--border)"}`, background: selectedCat === cat.cat ? "rgba(255,107,53,0.1)" : "var(--bg3)", color: selectedCat === cat.cat ? "var(--accent2)" : "var(--muted)", fontFamily: "Barlow Condensed", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: 1 }}>{cat.icon} {cat.cat}</button>
         ))}
@@ -880,7 +922,7 @@ function SetupScreen({onStart}){
   if(showToss) return <CoinTossScreen team1={team1} team2={team2} onComplete={r=>{setTossResult(r);setShowToss(false);}}/>;
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,#0d1f2d 0%,#080c10 70%)"}}>
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,#10281d 0%,#07100c 70%)"}}>
       <div style={{width:"100%",maxWidth:460}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:24,animation:"fadeInUp 0.6s ease"}}>
@@ -914,7 +956,7 @@ function SetupScreen({onStart}){
               <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>MATCH FORMAT</div>
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 {[["limited","🏏 Limited Overs"],["test","📋 Test Match"]].map(([v,l])=>(
-                  <button key={v} onClick={()=>setFormat(v)} style={{flex:1,padding:"10px 0",background:format===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:format===v?"var(--accent)":"var(--muted)",border:`2px solid ${format===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>{l}</button>
+                  <button key={v} onClick={()=>setFormat(v)} style={{flex:1,padding:"10px 0",background:format===v?"rgba(124,255,107,0.12)":"var(--bg3)",color:format===v?"var(--accent)":"var(--muted)",border:`2px solid ${format===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>{l}</button>
                 ))}
               </div>
               {format==="limited"&&<>
@@ -924,14 +966,14 @@ function SetupScreen({onStart}){
                   <input type="number" value={overs} onChange={e=>setOvers(Number(e.target.value))} style={{width:60,padding:"9px 8px",background:"var(--bg3)",color:"var(--text)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:14,textAlign:"center"}}/>
                 </div>
               </>}
-              {format==="test"&&<div style={{padding:"8px 12px",background:"rgba(0,229,255,0.05)",borderRadius:"var(--rad)",color:"var(--muted)",fontSize:12}}>4 innings · Unlimited overs · Stumps/Tea/Lunch available</div>}
+              {format==="test"&&<div style={{padding:"8px 12px",background:"rgba(124,255,107,0.05)",borderRadius:"var(--rad)",color:"var(--muted)",fontSize:12}}>4 innings · Unlimited overs · Stumps/Tea/Lunch available</div>}
             </div>
 
             <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",padding:16,marginBottom:12}}>
               <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>BALL TYPE</div>
               <div style={{display:"flex",gap:8}}>
                 {[["tennis","🎾 Tennis"],["rubber","⚫ Rubber"],["hard","🔴 Hard Ball"]].map(([v,l])=>(
-                  <button key={v} onClick={()=>setBallType(v)} style={{flex:1,padding:"10px 0",background:ballType===v?"rgba(0,229,255,0.12)":"var(--bg3)",color:ballType===v?"var(--accent)":"var(--muted)",border:`2px solid ${ballType===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{l}</button>
+                  <button key={v} onClick={()=>setBallType(v)} style={{flex:1,padding:"10px 0",background:ballType===v?"rgba(124,255,107,0.12)":"var(--bg3)",color:ballType===v?"var(--accent)":"var(--muted)",border:`2px solid ${ballType===v?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{l}</button>
                 ))}
               </div>
             </div>
@@ -946,7 +988,7 @@ function SetupScreen({onStart}){
               <div style={{fontSize:10,color:"var(--muted)",marginTop:6,fontFamily:"Barlow Condensed"}}>Innings ends when {numPlayers-1} wickets fall</div>
             </div>
 
-            <button onClick={()=>setStep(1)} style={{width:"100%",padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>
+            <button onClick={()=>setStep(1)} style={{width:"100%",padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#43d84e)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>
               NEXT: ADD PLAYERS →
             </button>
           </div>
@@ -972,8 +1014,8 @@ function SetupScreen({onStart}){
                     <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
                       <span style={{color:"var(--muted)",fontSize:10,minWidth:14,fontFamily:"Orbitron",textAlign:"center"}}>{i+1}</span>
                       <input value={p} onChange={e=>upd(tab,i,e.target.value)} style={{flex:1,padding:"6px 8px",background:"var(--bg3)",color:"var(--text)",border:`1px solid ${isCap||isWk?"var(--accent2)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontSize:13}}/>
-                      <button onClick={()=>setCap(i)} style={{width:28,height:28,background:isCap?"rgba(255,215,0,0.25)":"var(--bg3)",color:isCap?"var(--gold)":"var(--muted)",border:`1px solid ${isCap?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:11,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>C</button>
-                      <button onClick={()=>setWkFn(i)} style={{width:28,height:28,background:isWk?"rgba(0,229,255,0.2)":"var(--bg3)",color:isWk?"var(--accent)":"var(--muted)",border:`1px solid ${isWk?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:9,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>WK</button>
+                      <button onClick={()=>setCap(i)} style={{width:28,height:28,background:isCap?"rgba(244,201,93,0.25)":"var(--bg3)",color:isCap?"var(--gold)":"var(--muted)",border:`1px solid ${isCap?"var(--gold)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:11,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>C</button>
+                      <button onClick={()=>setWkFn(i)} style={{width:28,height:28,background:isWk?"rgba(124,255,107,0.2)":"var(--bg3)",color:isWk?"var(--accent)":"var(--muted)",border:`1px solid ${isWk?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontSize:9,fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",flexShrink:0}}>WK</button>
                     </div>
                   );
                 })}
@@ -986,7 +1028,7 @@ function SetupScreen({onStart}){
               <div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>🪙 TOSS</div>
               {tossResult?(
                 <div>
-                  <div style={{background:"rgba(255,215,0,0.08)",border:"1px solid rgba(255,215,0,0.25)",borderRadius:"var(--rad)",padding:"10px 14px",textAlign:"center",marginBottom:8}}>
+                  <div style={{background:"rgba(244,201,93,0.08)",border:"1px solid rgba(244,201,93,0.25)",borderRadius:"var(--rad)",padding:"10px 14px",textAlign:"center",marginBottom:8}}>
                     <div style={{fontFamily:"Barlow Condensed",color:"var(--gold)",fontSize:14,fontWeight:700}}>{tossResult.tossMsg}</div>
                     <div style={{color:"var(--muted)",fontSize:11,marginTop:3}}>Batting first: {[team1,team2][tossResult.battingFirst]}</div>
                   </div>
@@ -994,7 +1036,7 @@ function SetupScreen({onStart}){
                 </div>
               ):(
                 <div>
-                  <button onClick={()=>setShowToss(true)} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,215,0,0.05))",color:"var(--gold)",border:"2px solid rgba(255,215,0,0.4)",borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:700,fontSize:14,cursor:"pointer",letterSpacing:2}}>
+                  <button onClick={()=>setShowToss(true)} style={{width:"100%",padding:"14px 0",background:"linear-gradient(135deg,rgba(244,201,93,0.15),rgba(244,201,93,0.05))",color:"var(--gold)",border:"2px solid rgba(244,201,93,0.4)",borderRadius:"var(--rad2)",fontFamily:"Orbitron",fontWeight:700,fontSize:14,cursor:"pointer",letterSpacing:2}}>
                     🪙 FLIP THE COIN
                   </button>
                   <div style={{textAlign:"center",color:"var(--muted)",fontSize:11,marginTop:6,fontFamily:"Barlow Condensed"}}>Tap to do the toss — or skip and start directly</div>
@@ -1029,7 +1071,7 @@ function SetupScreen({onStart}){
                   isPublic,
                   numPlayers
                 })}
-                style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer",animation:"pulse-border 2s infinite"}}>
+                style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#43d84e)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer",animation:"pulse-border 2s infinite"}}>
                 START MATCH ▶
               </button>
             </div>
@@ -1045,10 +1087,10 @@ function SetupScreen({onStart}){
 function PitchMapSetup({ onDone, onSkip }) {
   const [zones, setZones] = useState([
     { id: 0, label: "SIX", runs: 6, color: "#39ff14", x: 5, y: 5, w: 90, h: 12 },
-    { id: 1, label: "4 (OFF)", runs: 4, color: "#ffd700", x: 5, y: 18, w: 42, h: 14 },
-    { id: 2, label: "4 (LEG)", runs: 4, color: "#ffd700", x: 53, y: 18, w: 42, h: 14 },
-    { id: 3, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 5, y: 33, w: 42, h: 14 },
-    { id: 4, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 53, y: 33, w: 42, h: 14 },
+    { id: 1, label: "4 (OFF)", runs: 4, color: "#f4c95d", x: 5, y: 18, w: 42, h: 14 },
+    { id: 2, label: "4 (LEG)", runs: 4, color: "#f4c95d", x: 53, y: 18, w: 42, h: 14 },
+    { id: 3, label: "3 RUNS", runs: 3, color: "#7CFF6B", x: 5, y: 33, w: 42, h: 14 },
+    { id: 4, label: "3 RUNS", runs: 3, color: "#7CFF6B", x: 53, y: 33, w: 42, h: 14 },
     { id: 5, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 15, y: 48, w: 32, h: 12 },
     { id: 6, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 53, y: 48, w: 32, h: 12 },
     { id: 7, label: "1 RUN", runs: 1, color: "#e8f4f8", x: 25, y: 61, w: 20, h: 12 },
@@ -1127,10 +1169,10 @@ function PitchMapSetup({ onDone, onSkip }) {
 // ── PITCH MAP SCORER (replaces CameraTracker) ─────────────────────────────────
 const DEFAULT_ZONES = [
   { id: 0, label: "SIX", runs: 6, color: "#39ff14", x: 5, y: 5, w: 90, h: 12 },
-  { id: 1, label: "4 (OFF)", runs: 4, color: "#ffd700", x: 5, y: 18, w: 42, h: 14 },
-  { id: 2, label: "4 (LEG)", runs: 4, color: "#ffd700", x: 53, y: 18, w: 42, h: 14 },
-  { id: 3, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 5, y: 33, w: 42, h: 14 },
-  { id: 4, label: "3 RUNS", runs: 3, color: "#00e5ff", x: 53, y: 33, w: 42, h: 14 },
+  { id: 1, label: "4 (OFF)", runs: 4, color: "#f4c95d", x: 5, y: 18, w: 42, h: 14 },
+  { id: 2, label: "4 (LEG)", runs: 4, color: "#f4c95d", x: 53, y: 18, w: 42, h: 14 },
+  { id: 3, label: "3 RUNS", runs: 3, color: "#7CFF6B", x: 5, y: 33, w: 42, h: 14 },
+  { id: 4, label: "3 RUNS", runs: 3, color: "#7CFF6B", x: 53, y: 33, w: 42, h: 14 },
   { id: 5, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 15, y: 48, w: 32, h: 12 },
   { id: 6, label: "2 RUNS", runs: 2, color: "#ff6b35", x: 53, y: 48, w: 32, h: 12 },
   { id: 7, label: "1 RUN", runs: 1, color: "#e8f4f8", x: 25, y: 61, w: 20, h: 12 },
@@ -1207,14 +1249,14 @@ function BatterChangeDialog({title,players,currentStrikerIdx,currentNonStrikerId
         <div style={{maxHeight:160,overflowY:"auto",marginBottom:12}}>
           {safePlayers.map((p,i)=>(
             <div key={i} onClick={()=>!p.dismissed&&setStrikerIdx(i)}
-              style={{padding:"8px 12px",marginBottom:4,background:strikerIdx===i?"rgba(0,229,255,0.12)":p.dismissed?"rgba(255,61,90,0.04)":"var(--bg3)",
+              style={{padding:"8px 12px",marginBottom:4,background:strikerIdx===i?"rgba(124,255,107,0.12)":p.dismissed?"rgba(255,61,90,0.04)":"var(--bg3)",
                 border:`1px solid ${strikerIdx===i?"var(--accent)":p.dismissed?"rgba(255,61,90,0.15)":"var(--border)"}`,
                 borderRadius:"var(--rad)",cursor:p.dismissed?"default":"pointer",opacity:p.dismissed?0.4:1,
                 display:"flex",justifyContent:"space-between"}}>
               <span style={{fontFamily:"Barlow Condensed",fontSize:14,color:strikerIdx===i?"var(--accent)":"var(--text)",fontWeight:strikerIdx===i?700:400}}>
                 {p.name}
-                {p.isCaptain&&<span style={{marginLeft:5,fontSize:8,background:"rgba(255,215,0,0.2)",color:"var(--gold)",borderRadius:3,padding:"1px 4px"}}>C</span>}
-                {p.isWK&&<span style={{marginLeft:3,fontSize:8,background:"rgba(0,229,255,0.15)",color:"var(--accent)",borderRadius:3,padding:"1px 4px"}}>WK</span>}
+                {p.isCaptain&&<span style={{marginLeft:5,fontSize:8,background:"rgba(244,201,93,0.2)",color:"var(--gold)",borderRadius:3,padding:"1px 4px"}}>C</span>}
+                {p.isWK&&<span style={{marginLeft:3,fontSize:8,background:"rgba(124,255,107,0.15)",color:"var(--accent)",borderRadius:3,padding:"1px 4px"}}>WK</span>}
               </span>
               <span style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>
                 {p.dismissed?"OUT":`${p.runs||0}(${p.balls||0}b)`}
@@ -1262,15 +1304,15 @@ function ChangePlayerDialog({ title, players, currentIdx, onSelect, onCancel }) 
           {players.map((p, i) => (
             <div key={i} onClick={() => !p.dismissed && onSelect(i)}
               style={{ padding:"11px 14px", marginBottom:6,
-                background: currentIdx===i ? "rgba(0,229,255,0.12)" : p.dismissed ? "rgba(255,61,90,0.04)" : "var(--bg3)",
+                background: currentIdx===i ? "rgba(124,255,107,0.12)" : p.dismissed ? "rgba(255,61,90,0.04)" : "var(--bg3)",
                 border:`1px solid ${currentIdx===i?"var(--accent)":p.dismissed?"rgba(255,61,90,0.15)":"var(--border)"}`,
                 borderRadius:"var(--rad)", cursor:p.dismissed?"default":"pointer",
                 display:"flex", justifyContent:"space-between", alignItems:"center",
                 opacity: p.dismissed ? 0.4 : 1 }}>
               <div>
                 <span style={{ fontFamily:"Barlow Condensed", fontSize:15, color:currentIdx===i?"var(--accent)":"var(--text)", fontWeight:currentIdx===i?700:400 }}>{p.name}</span>
-                {p.isCaptain&&<span style={{ marginLeft:6, fontSize:9, background:"rgba(255,215,0,0.2)", color:"var(--gold)", borderRadius:3, padding:"1px 5px", fontFamily:"Barlow Condensed", fontWeight:700 }}>C</span>}
-                {p.isWK&&<span style={{ marginLeft:4, fontSize:9, background:"rgba(0,229,255,0.15)", color:"var(--accent)", borderRadius:3, padding:"1px 5px", fontFamily:"Barlow Condensed", fontWeight:700 }}>WK</span>}
+                {p.isCaptain&&<span style={{ marginLeft:6, fontSize:9, background:"rgba(244,201,93,0.2)", color:"var(--gold)", borderRadius:3, padding:"1px 5px", fontFamily:"Barlow Condensed", fontWeight:700 }}>C</span>}
+                {p.isWK&&<span style={{ marginLeft:4, fontSize:9, background:"rgba(124,255,107,0.15)", color:"var(--accent)", borderRadius:3, padding:"1px 5px", fontFamily:"Barlow Condensed", fontWeight:700 }}>WK</span>}
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontSize:12, color:"var(--muted)", fontFamily:"Barlow Condensed" }}>{p.runs||0}({p.balls||0}b)</div>
@@ -1326,9 +1368,9 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
       {notif&&<div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:notif.color,color:["var(--gold)","var(--accent3)"].includes(notif.color)?"#000":"#fff",padding:"9px 20px",borderRadius:30,fontFamily:"Orbitron",fontWeight:700,fontSize:14,zIndex:999,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}} className="bounce-in">{notif.msg}</div>}
 
       {/* ── HEADER ── */}
-      <div style={{background:"linear-gradient(180deg,#071528,#04080f)",borderBottom:"1px solid var(--border)",padding:"10px 14px 8px",flexShrink:0}}>
+      <div style={{background:"linear-gradient(180deg,#0a1711,#050806)",borderBottom:"1px solid var(--border)",padding:"10px 14px 8px",flexShrink:0}}>
         {/* Toss strip */}
-        {match.toss&&<div style={{fontSize:10,color:"var(--muted)",background:"rgba(255,215,0,0.05)",borderRadius:4,padding:"3px 8px",marginBottom:6,fontFamily:"Barlow Condensed",letterSpacing:1}}>🪙 {match.toss}</div>}
+        {match.toss&&<div style={{fontSize:10,color:"var(--muted)",background:"rgba(244,201,93,0.05)",borderRadius:4,padding:"3px 8px",marginBottom:6,fontFamily:"Barlow Condensed",letterSpacing:1}}>🪙 {match.toss}</div>}
 
         {/* Team + tags */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
@@ -1345,7 +1387,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         {/* Score */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:4}}>
           <div>
-            <div style={{fontFamily:"Bebas Neue",fontSize:64,color:"var(--text)",lineHeight:0.9,letterSpacing:2,textShadow:"0 2px 20px rgba(0,212,255,0.3)"}}>
+            <div style={{fontFamily:"Bebas Neue",fontSize:64,color:"var(--text)",lineHeight:0.9,letterSpacing:2,textShadow:"0 2px 20px rgba(124,255,107,0.3)"}}>
               {bt.score}<span style={{color:"var(--danger)",fontSize:36,opacity:0.9}}>/{bt.wickets}</span>
             </div>
             <div style={{color:"var(--muted)",fontSize:12,marginTop:2,display:"flex",gap:10}}>
@@ -1385,10 +1427,10 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         {/* Striker / Non-striker / Bowler */}
         <div style={{display:"flex",gap:6}}>
           {/* STRIKER */}
-          <div style={{flex:1.2,background:"rgba(0,229,255,0.06)",border:"1.5px solid var(--accent)",borderRadius:"var(--rad)",padding:"6px 8px",position:"relative"}}>
+          <div style={{flex:1.2,background:"rgba(124,255,107,0.06)",border:"1.5px solid var(--accent)",borderRadius:"var(--rad)",padding:"6px 8px",position:"relative"}}>
             <div style={{fontSize:8,color:"var(--accent)",letterSpacing:1,fontWeight:700,fontFamily:"Barlow Condensed",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
               <span>⚡ STRIKER</span>
-              <span onClick={e=>{e.stopPropagation();setChangeDialog("striker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(0,229,255,0.15)",borderRadius:3}}>✎</span>
+              <span onClick={e=>{e.stopPropagation();setChangeDialog("striker");}} style={{fontSize:10,cursor:"pointer",padding:"1px 4px",background:"rgba(124,255,107,0.15)",borderRadius:3}}>✎</span>
             </div>
             <div onClick={()=>onOpenDeclare("striker")} style={{cursor:"pointer"}}>
               <div style={{fontSize:13,color:"var(--text)",fontFamily:"Rajdhani",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.striker?.name||"—"}</div>
@@ -1433,7 +1475,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
       <div style={{flex:1,overflowY:"auto",padding:"10px 14px"}}>
 
         {/* Pitch Map */}
-        <button onClick={()=>setShowCamera(s=>!s)} style={{width:"100%",padding:"7px 0",marginBottom:8,background:showCamera?"rgba(0,229,255,0.08)":"var(--bg3)",color:"var(--accent)",border:`1px solid ${showCamera?"var(--accent)":"rgba(0,229,255,0.3)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,letterSpacing:1,cursor:"pointer"}}>
+        <button onClick={()=>setShowCamera(s=>!s)} style={{width:"100%",padding:"7px 0",marginBottom:8,background:showCamera?"rgba(124,255,107,0.08)":"var(--bg3)",color:"var(--accent)",border:`1px solid ${showCamera?"var(--accent)":"rgba(124,255,107,0.3)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,letterSpacing:1,cursor:"pointer"}}>
           {showCamera?"🏏 HIDE PITCH MAP":"🏏 SHOW PITCH MAP"}
         </button>
         {showCamera&&<PitchMapScorer zones={match.zones} onDetect={r=>{if(r!=null){handleRun(r,"camera");}}} active={showCamera}/>}
@@ -1475,7 +1517,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:7,marginBottom:8}}>
           <button onClick={onWicket} style={{padding:"14px 0",background:"linear-gradient(135deg,rgba(255,64,96,0.2),rgba(255,64,96,0.05))",color:"var(--danger)",border:"1px solid rgba(255,64,96,0.5)",borderRadius:"var(--rad2)",fontFamily:"Bebas Neue",fontSize:18,letterSpacing:2,cursor:"pointer",boxShadow:"0 0 20px rgba(255,64,96,0.15)"}}>🔴 WICKET</button>
           <button onClick={onUndo} style={{padding:"14px 0",background:"var(--bg3)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer"}}>↩ UNDO</button>
-          <button onClick={()=>setShowMenu(s=>!s)} style={{padding:"14px 0",background:showMenu?"rgba(0,229,255,0.08)":"var(--bg3)",color:showMenu?"var(--accent)":"var(--muted)",border:`1px solid ${showMenu?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:18,cursor:"pointer"}}>⚙️</button>
+          <button onClick={()=>setShowMenu(s=>!s)} style={{padding:"14px 0",background:showMenu?"rgba(124,255,107,0.08)":"var(--bg3)",color:showMenu?"var(--accent)":"var(--muted)",border:`1px solid ${showMenu?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad2)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:18,cursor:"pointer"}}>⚙️</button>
         </div>
 
         {/* ⚙️ Menu */}
@@ -1484,7 +1526,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
             <div style={{fontSize:10,color:"var(--muted)",letterSpacing:2,fontFamily:"Barlow Condensed",fontWeight:700,marginBottom:8}}>MORE OPTIONS</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
               <button onClick={()=>{onEndInnings();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(255,107,53,0.1)",color:"var(--accent2)",border:"1px solid rgba(255,107,53,0.3)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>📋 DECLARE INN</button>
-              <button onClick={()=>{onManualStrikeSwap();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(0,229,255,0.06)",color:"var(--accent)",border:"1px solid rgba(0,229,255,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>🔄 SWAP STRIKE</button>
+              <button onClick={()=>{onManualStrikeSwap();setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(124,255,107,0.06)",color:"var(--accent)",border:"1px solid rgba(124,255,107,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>🔄 SWAP STRIKE</button>
               {match?.isPublic
                 ?<button onClick={()=>{const id=match?.matchId||"";const link=`${window.location.origin}?live=${id}`;navigator.clipboard?.writeText(link).catch(()=>{});navigator.share?.({title:"Watch Live on CricScan",url:link}).catch(()=>{});setShowMenu(false);}} style={{padding:"10px 0",background:"rgba(57,255,20,0.06)",color:"var(--accent3)",border:"1px solid rgba(57,255,20,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1,gridColumn:"span 2"}}>📡 SHARE LIVE LINK</button>
                 :<div style={{padding:"10px 0",background:"rgba(255,61,90,0.05)",color:"rgba(255,61,90,0.4)",border:"1px solid rgba(255,61,90,0.1)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:11,letterSpacing:1,textAlign:"center",gridColumn:"span 2"}}>🔒 PRIVATE MATCH</div>
@@ -1495,7 +1537,7 @@ function ScoringScreen({match,onBall,onWicket,onUndo,onEndInnings,onStumps,onMan
                 <div style={{fontSize:10,color:"var(--muted)",letterSpacing:2,fontFamily:"Barlow Condensed",fontWeight:700,margin:"10px 0 6px"}}>TEST BREAKS</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
                   {[["🌙","STUMPS"],["☕","TEA"],["🍽","LUNCH"],["🌧","RAIN"]].map(([icon,label])=>(
-                    <button key={label} onClick={()=>{onStumps(`${icon} ${label}`);setShowMenu(false);}} style={{padding:"9px 0",background:"rgba(0,229,255,0.04)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{icon} {label}</button>
+                    <button key={label} onClick={()=>{onStumps(`${icon} ${label}`);setShowMenu(false);}} style={{padding:"9px 0",background:"rgba(124,255,107,0.04)",color:"var(--muted)",border:"1px solid var(--border)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:1}}>{icon} {label}</button>
                   ))}
                 </div>
               </>
@@ -1673,11 +1715,11 @@ function InningsBreakDialog({ inningNum, nextTeam, isLastInnings, onStartInnings
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
               <button onClick={onStartInnings}
-                style={{ padding:"14px 0", background:"linear-gradient(135deg,var(--accent),#0099bb)", color:"#000", border:"none", borderRadius:"var(--rad2)", fontFamily:"Orbitron", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:2 }}>
+                style={{ padding:"14px 0", background:"linear-gradient(135deg,var(--accent),#43d84e)", color:"#000", border:"none", borderRadius:"var(--rad2)", fontFamily:"Orbitron", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:2 }}>
                 ▶ START {inningsLabel[inningNum].toUpperCase()} INNINGS
               </button>
               <button onClick={()=>setShowBreak(true)}
-                style={{ padding:"13px 0", background:"rgba(255,215,0,0.08)", color:"var(--gold)", border:"1px solid rgba(255,215,0,0.3)", borderRadius:"var(--rad2)", fontFamily:"Barlow Condensed", fontWeight:700, fontSize:14, cursor:"pointer", letterSpacing:1 }}>
+                style={{ padding:"13px 0", background:"rgba(244,201,93,0.08)", color:"var(--gold)", border:"1px solid rgba(244,201,93,0.3)", borderRadius:"var(--rad2)", fontFamily:"Barlow Condensed", fontWeight:700, fontSize:14, cursor:"pointer", letterSpacing:1 }}>
                 ⏸️ TAKE A BREAK / STUMPS
               </button>
             </div>
@@ -1688,7 +1730,7 @@ function InningsBreakDialog({ inningNum, nextTeam, isLastInnings, onStartInnings
               All 4 innings complete. End the match?
             </div>
             <button onClick={onEndMatch}
-              style={{ width:"100%", padding:"14px 0", background:"linear-gradient(135deg,var(--gold),#cc9900)", color:"#000", border:"none", borderRadius:"var(--rad2)", fontFamily:"Orbitron", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:2 }}>
+              style={{ width:"100%", padding:"14px 0", background:"linear-gradient(135deg,var(--gold),#c9972c)", color:"#000", border:"none", borderRadius:"var(--rad2)", fontFamily:"Orbitron", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:2 }}>
               🏆 END MATCH
             </button>
           </>
@@ -1724,7 +1766,7 @@ function ScorecardScreen({match,onBack}){
   const bwTeam=match.teams[1-tab];
   return (
     <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
-      <div style={{background:"linear-gradient(135deg,#0a1520,#0d1f2e)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+      <div style={{background:"linear-gradient(135deg,#0d1a14,#10281d)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:"var(--accent)",fontSize:22,cursor:"pointer",lineHeight:1}}>←</button>
         <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2}}>SCORECARD</div>
         {match.format&&<span style={{marginLeft:"auto",fontSize:10,color:"var(--muted)",background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:1}}>{match.format.toUpperCase()} · {match.ballType?.toUpperCase()}</span>}
@@ -1751,8 +1793,8 @@ function ScorecardScreen({match,onBack}){
                 <span style={{fontWeight:p.dismissed?400:600,display:"flex",alignItems:"center",gap:3,flexWrap:"wrap"}}>
                   {p.name}
                   {!p.dismissed&&<span style={{color:"var(--accent3)",fontSize:9}}> *</span>}
-                  {p.isCaptain&&<span style={{fontSize:8,background:"rgba(255,215,0,0.2)",color:"var(--gold)",borderRadius:3,padding:"1px 4px",fontFamily:"Barlow Condensed",fontWeight:700}}>C</span>}
-                  {p.isWK&&<span style={{fontSize:8,background:"rgba(0,229,255,0.15)",color:"var(--accent)",borderRadius:3,padding:"1px 4px",fontFamily:"Barlow Condensed",fontWeight:700}}>WK</span>}
+                  {p.isCaptain&&<span style={{fontSize:8,background:"rgba(244,201,93,0.2)",color:"var(--gold)",borderRadius:3,padding:"1px 4px",fontFamily:"Barlow Condensed",fontWeight:700}}>C</span>}
+                  {p.isWK&&<span style={{fontSize:8,background:"rgba(124,255,107,0.15)",color:"var(--accent)",borderRadius:3,padding:"1px 4px",fontFamily:"Barlow Condensed",fontWeight:700}}>WK</span>}
                 </span>
                 {p.dismissed&&<span style={{display:"block",color:"var(--muted)",fontSize:9,fontWeight:400}}>{p.dismissal}{p.catchBy?` (${p.catchBy})`:""}</span>}
               </span>,
@@ -1838,7 +1880,7 @@ function ResultScreen({match,onNewMatch,onShare}){
   const tabs=["awards",...(isTest?innings.map((_,i)=>`inn${i}`):[])];
 
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 0%,#0d2035 0%,#04080f 60%)",display:"flex",flexDirection:"column",paddingBottom:30}}>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 0%,#10281d 0%,#050806 60%)",display:"flex",flexDirection:"column",paddingBottom:30}}>
 
       {/* Result banner */}
       <div style={{textAlign:"center",padding:"24px 18px 16px",animation:"fadeInUp 0.5s ease"}}>
@@ -1865,7 +1907,7 @@ function ResultScreen({match,onNewMatch,onShare}){
         {tab==="awards"&&<>
           {/* POTM — auto selected */}
           <Card title="🏅 PLAYER OF THE MATCH" style={{marginBottom:14}}>
-            <div style={{background:"rgba(255,215,0,0.07)",border:"1px solid rgba(255,215,0,0.25)",borderRadius:"var(--rad)",padding:"14px 16px",textAlign:"center"}}>
+            <div style={{background:"rgba(244,201,93,0.07)",border:"1px solid rgba(244,201,93,0.25)",borderRadius:"var(--rad)",padding:"14px 16px",textAlign:"center"}}>
               <div style={{fontSize:32,marginBottom:6}}>⭐</div>
               <div style={{fontFamily:"Orbitron",color:"var(--gold)",fontSize:18,fontWeight:700,marginBottom:4}}>{potm.name}</div>
               <div style={{color:"var(--muted)",fontSize:12,fontFamily:"Barlow Condensed"}}>{potm.team}</div>
@@ -1954,8 +1996,8 @@ function ResultScreen({match,onNewMatch,onShare}){
         ))}
 
         <div style={{display:"flex",gap:10,marginBottom:0}}>
-        <button onClick={onShare} style={{flex:1,padding:"13px 0",background:"rgba(0,229,255,0.08)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:11,cursor:"pointer",letterSpacing:1}}>📤 SHARE</button>
-        <button onClick={onNewMatch} style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#0099bb)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
+        <button onClick={onShare} style={{flex:1,padding:"13px 0",background:"rgba(124,255,107,0.08)",color:"var(--accent)",border:"1px solid var(--accent)",borderRadius:"var(--rad)",fontFamily:"Orbitron",fontWeight:700,fontSize:11,cursor:"pointer",letterSpacing:1}}>📤 SHARE</button>
+        <button onClick={onNewMatch} style={{flex:2,padding:"13px 0",background:"linear-gradient(135deg,var(--accent),#43d84e)",color:"#000",fontFamily:"Orbitron",fontWeight:700,fontSize:13,letterSpacing:2,border:"none",borderRadius:"var(--rad)",cursor:"pointer"}}>🏏 NEW MATCH</button>
       </div>
       </div>
     </div>
@@ -1988,7 +2030,7 @@ function HistoryScreen({onBack,onView,user}){
   };
   return (
     <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column"}}>
-      <div style={{background:"linear-gradient(135deg,#0a1520,#0d1f2e)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
+      <div style={{background:"linear-gradient(135deg,#0d1a14,#10281d)",borderBottom:"1px solid var(--border)",padding:"12px 14px",display:"flex",alignItems:"center",gap:10}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:"var(--accent)",fontSize:22,cursor:"pointer",lineHeight:1}}>←</button>
         <div style={{fontFamily:"Orbitron",color:"var(--accent)",fontSize:13,letterSpacing:2}}>MATCH HISTORY</div>
         <span style={{marginLeft:"auto",fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>{records.length} matches</span>
@@ -2021,7 +2063,7 @@ function HistoryScreen({onBack,onView,user}){
                 <div style={{fontSize:11,color:"var(--muted)"}}>({overStr(t?.balls||0)} ov)</div>
               </div>))}
             </div>
-            <button onClick={()=>onView(r)} style={{width:"100%",marginTop:10,padding:"8px 0",background:"rgba(0,229,255,0.06)",color:"var(--accent)",border:"1px solid rgba(0,229,255,0.25)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>VIEW FULL SCORECARD →</button>
+            <button onClick={()=>onView(r)} style={{width:"100%",marginTop:10,padding:"8px 0",background:"rgba(124,255,107,0.06)",color:"var(--accent)",border:"1px solid rgba(124,255,107,0.25)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:13,cursor:"pointer",letterSpacing:1}}>VIEW FULL SCORECARD →</button>
           </div>
         ))}
       </div>
@@ -2033,7 +2075,7 @@ function HistoryScreen({onBack,onView,user}){
 export default function App(){
   const [screen,setScreen]=useState("login");
   const [user,setUser]=useState(null);
-  const [authLoading,setAuthLoading]=useState(true);
+  const [authLoading,setAuthLoading]=useState(isFirebaseConfigured);
   const [match,setMatch]=useState(null);
   const [showWicket,setShowWicket]=useState(false);
   const [showBowlerSelect,setShowBowlerSelect]=useState(false);
@@ -2060,7 +2102,16 @@ export default function App(){
 
   // Auth state listener
   useEffect(()=>{
+    let settled = false;
+    const authFallback = setTimeout(()=>{
+      if(!settled){
+        setAuthLoading(false);
+        setScreen("login");
+      }
+    }, 3000);
     const unsub = onAuthChange(async u=>{
+      settled = true;
+      clearTimeout(authFallback);
       setUser(u);
       setAuthLoading(false);
       if(u){
@@ -2076,7 +2127,10 @@ export default function App(){
         setScreen("login");
       }
     });
-    return ()=>unsub();
+    return ()=>{
+      clearTimeout(authFallback);
+      unsub();
+    };
   },[]);
 
   // Auto-save live match to Firebase on every change
