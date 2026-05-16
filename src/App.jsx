@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import html2canvas from "html2canvas";
-import { auth, db, isFirebaseConfigured, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, getLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase.js";
+import { auth, db, isFirebaseConfigured, signInWithGoogle, signInWithEmail, registerWithEmail, logOut, onAuthChange, saveLiveMatch, clearLiveMatch, saveMatch, getMatchHistory, deleteMatch } from "./firebase.js";
 
 const FontLink = () => (
   <style>{`
@@ -2073,7 +2073,7 @@ function HistoryScreen({onBack,onView,user}){
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App(){
-  const [screen,setScreen]=useState("login");
+  const [screen,setScreen]=useState("splash");
   const [user,setUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(isFirebaseConfigured);
   const [match,setMatch]=useState(null);
@@ -2106,7 +2106,7 @@ export default function App(){
     const authFallback = setTimeout(()=>{
       if(!settled){
         setAuthLoading(false);
-        setScreen("login");
+        setScreen("splash");
       }
     }, 3000);
     const unsub = onAuthChange(async u=>{
@@ -2115,16 +2115,9 @@ export default function App(){
       setUser(u);
       setAuthLoading(false);
       if(u){
-        // Try restore live match from Firebase
-        try{
-          const live = await getLiveMatch();
-          if(live&&!live.ended&&live.teams&&live.teams.length===2&&live.striker&&live.currentBowler){
-            setMatch(live); setScreen("scoring"); return;
-          }
-        }catch(e){}
         setScreen("splash");
       } else {
-        setScreen("login");
+        setScreen("splash");
       }
     });
     return ()=>{
