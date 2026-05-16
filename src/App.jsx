@@ -17,6 +17,30 @@ const FontLink = () => (
       --muted:#a9c79e; --muted2:#4e7047;
       --rad:8px; --rad2:14px; --rad3:20px;
     }
+    body[data-theme="classic"] {
+      --bg:#06110d; --bg2:#0b1a13; --bg3:#10281d; --card:#0f2d20;
+      --border:#2f5d47; --border2:#4a8368; --accent:#7CFF6B; --accent-dim:#43d84e;
+      --accent2:#ff7a45; --accent3:#5fd8ff; --gold:#f4c95d; --gold2:#c9972c;
+      --text:#f8fff5; --text2:#d9f7d0; --muted:#a9c79e; --muted2:#4e7047;
+    }
+    body[data-theme="stadium"] {
+      --bg:#05070d; --bg2:#0a0f1a; --bg3:#111827; --card:#101725;
+      --border:#28364f; --border2:#405679; --accent:#54d7ff; --accent-dim:#1fa4cf;
+      --accent2:#ff4f8b; --accent3:#8fff6b; --gold:#ffd166; --gold2:#d79d20;
+      --text:#f2f8ff; --text2:#c7d8ea; --muted:#8ea4ba; --muted2:#3b4d63;
+    }
+    body[data-theme="worldcup"] {
+      --bg:#13070a; --bg2:#21100d; --bg3:#2b1710; --card:#29160f;
+      --border:#69402d; --border2:#9b6540; --accent:#ffcf33; --accent-dim:#d99a12;
+      --accent2:#25d366; --accent3:#4fc3ff; --gold:#ffe082; --gold2:#c98918;
+      --text:#fff8e8; --text2:#f0d6ad; --muted:#c49f72; --muted2:#6b4a31;
+    }
+    body[data-theme="minimal"] {
+      --bg:#f6faf7; --bg2:#eaf1ec; --bg3:#ffffff; --card:#ffffff;
+      --border:#cfded4; --border2:#afc7b8; --accent:#168a4a; --accent-dim:#0f6d38;
+      --accent2:#d85b21; --accent3:#1677a3; --gold:#b8860b; --gold2:#8f6505;
+      --danger:#c8324d; --text:#102017; --text2:#33483b; --muted:#667a6d; --muted2:#d9e5dd;
+    }
     html{min-height:100%;background:#06110d}
     body {
       min-height:100vh;
@@ -136,6 +160,30 @@ function AwardCard({icon,title,name,stat,color}){
 }
 
 // ── LOGIN SCREEN ─────────────────────────────────────────────────────────────
+const THEMES = [
+  {id:"classic",name:"Classic Green",swatch:"#7CFF6B"},
+  {id:"stadium",name:"Night Stadium",swatch:"#54d7ff"},
+  {id:"worldcup",name:"World Cup",swatch:"#ffcf33"},
+  {id:"minimal",name:"Minimal White",swatch:"#168a4a"},
+];
+
+function ThemeSettings({theme,onThemeChange,compact=false}){
+  return (
+    <div style={{background:compact?"transparent":"var(--card)",border:compact?"none":"1px solid var(--border)",borderRadius:"var(--rad2)",padding:compact?0:14,marginBottom:compact?0:12}}>
+      {!compact&&<div style={{fontFamily:"Barlow Condensed",fontWeight:700,letterSpacing:2,fontSize:11,color:"var(--muted)",marginBottom:10}}>THEME SETTINGS</div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+        {THEMES.map(t=>(
+          <button key={t.id} onClick={()=>onThemeChange(t.id)}
+            style={{display:"flex",alignItems:"center",gap:8,padding:compact?"7px 8px":"10px 9px",background:theme===t.id?"rgba(124,255,107,0.12)":"var(--bg3)",color:theme===t.id?"var(--accent)":"var(--muted)",border:`1px solid ${theme===t.id?"var(--accent)":"var(--border)"}`,borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:compact?11:12,cursor:"pointer",letterSpacing:1,textAlign:"left"}}>
+            <span style={{width:13,height:13,borderRadius:"50%",background:t.swatch,boxShadow:`0 0 12px ${t.swatch}`,flexShrink:0}}/>
+            <span>{t.name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen({onLogin}){
   const [mode,setMode]=useState("login"); // login | register
   const [email,setEmail]=useState("");
@@ -225,11 +273,11 @@ function LoginScreen({onLogin}){
 
 
 // ── SPLASH SCREEN ────────────────────────────────────────────────────────────
-function SplashScreen({onStart,onSignOut,user}){
+function SplashScreen({onStart,onSignOut,user,theme,onThemeChange}){
   const [visible,setVisible]=useState(false);
   useEffect(()=>{setTimeout(()=>setVisible(true),100);},[]);
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 30%,#10281d 0%,#050806 65%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 50% 30%,var(--bg3) 0%,var(--bg) 65%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,position:"relative",overflow:"hidden"}}>
       {/* Grid overlay */}
       <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(rgba(124,255,107,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,255,107,0.03) 1px,transparent 1px)",backgroundSize:"40px 40px",pointerEvents:"none"}}/>
       {/* Glow orbs */}
@@ -244,7 +292,7 @@ function SplashScreen({onStart,onSignOut,user}){
         <div style={{fontSize:80,marginBottom:16,filter:"drop-shadow(0 0 30px rgba(124,255,107,0.8)) drop-shadow(0 0 60px rgba(124,255,107,0.3))"}} className="float">🏏</div>
 
         {/* CRICSCAN title */}
-        <div style={{fontFamily:"Bebas Neue",fontSize:60,letterSpacing:8,color:"var(--accent)",marginBottom:4,textShadow:"0 0 40px rgba(124,255,107,0.7),0 0 80px rgba(124,255,107,0.3)",lineHeight:1}}>CRICSCAN</div>
+        <div style={{fontFamily:"Bebas Neue",fontSize:46,letterSpacing:5,color:"var(--accent)",marginBottom:4,textShadow:"0 0 40px rgba(124,255,107,0.7),0 0 80px rgba(124,255,107,0.3)",lineHeight:1,whiteSpace:"nowrap"}}>CRICSCAN</div>
 
         {/* Tagline */}
         <div style={{fontFamily:"Space Mono",fontSize:10,letterSpacing:5,color:"var(--muted)",marginBottom:6,textTransform:"uppercase",background:"linear-gradient(135deg,var(--accent),var(--purple))",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>AI · POWERED · CRICKET · SCORER</div>
@@ -266,6 +314,9 @@ function SplashScreen({onStart,onSignOut,user}){
 
         {/* Version tag */}
         <div style={{marginTop:32,fontSize:11,color:"var(--border)",fontFamily:"Barlow Condensed",letterSpacing:2}}>v2.0 · CRICSCAN</div>
+        <div style={{margin:"18px auto 0",width:"100%",maxWidth:330}}>
+          <ThemeSettings theme={theme} onThemeChange={onThemeChange} compact/>
+        </div>
         {user&&<div style={{marginTop:12,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
           <div style={{fontSize:11,color:"var(--muted)",fontFamily:"Barlow Condensed"}}>{user.email}</div>
           <button onClick={onSignOut} style={{fontSize:11,color:"var(--danger)",background:"none",border:"1px solid rgba(255,61,90,0.3)",borderRadius:20,padding:"4px 14px",fontFamily:"Barlow Condensed",fontWeight:700,cursor:"pointer",letterSpacing:1}}>SIGN OUT</button>
@@ -866,7 +917,7 @@ function RulesScreen({ onBack }) {
 }
 
 // ── SETUP SCREEN ──────────────────────────────────────────────────────────────
-function SetupScreen({onStart}){
+function SetupScreen({onStart,theme,onThemeChange}){
   const [step,setStep]=useState(0);
   const [team1,setTeam1]=useState("Team Alpha");
   const [team2,setTeam2]=useState("Team Bravo");
@@ -885,6 +936,16 @@ function SetupScreen({onStart}){
   const [isPublic,setIsPublic]=useState(true);
   const [numPlayers,setNumPlayers]=useState(11);
   const [tab,setTab]=useState(0);
+  const [savedMsg,setSavedMsg]=useState("");
+
+  const setupPayload = () => ({team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,numPlayers,isPublic});
+  const saveSetupData = () => {
+    try{
+      localStorage.setItem("cricscan_teams",JSON.stringify(setupPayload()));
+      setSavedMsg("Saved");
+      setTimeout(()=>setSavedMsg(""),1400);
+    }catch{}
+  };
 
   // Load saved data
   useEffect(()=>{
@@ -898,13 +959,18 @@ function SetupScreen({onStart}){
       if(saved.captain2!=null)setCaptain2(saved.captain2);
       if(saved.wk1!=null)setWk1(saved.wk1);
       if(saved.wk2!=null)setWk2(saved.wk2);
+      if(saved.overs!=null)setOvers(saved.overs);
+      if(saved.format)setFormat(saved.format);
+      if(saved.ballType)setBallType(saved.ballType);
+      if(saved.numPlayers!=null)setNumPlayers(saved.numPlayers);
+      if(saved.isPublic!=null)setIsPublic(saved.isPublic);
     }catch{}
   },[]);
 
   // Auto-save
   useEffect(()=>{
-    try{ localStorage.setItem("cricscan_teams",JSON.stringify({team1,team2,players1,players2,captain1,captain2,wk1,wk2})); }catch{}
-  },[team1,team2,players1,players2,captain1,captain2,wk1,wk2]);
+    try{ localStorage.setItem("cricscan_teams",JSON.stringify(setupPayload())); }catch{}
+  },[team1,team2,overs,format,ballType,players1,players2,captain1,captain2,wk1,wk2,numPlayers,isPublic]);
 
   const upd=(team,idx,val)=>{
     if(team===0){const a=[...players1];a[idx]=val;setPlayers1(a);}
@@ -917,18 +983,21 @@ function SetupScreen({onStart}){
     setPlayers1(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
     setPlayers2(Array(11).fill("").map((_,i)=>`Player ${i+1}`));
     setCaptain1(0);setCaptain2(0);setWk1(6);setWk2(6);
+    setOvers(10);setFormat("limited");setBallType("tennis");setNumPlayers(11);setIsPublic(true);
   };
 
   if(showToss) return <CoinTossScreen team1={team1} team2={team2} onComplete={r=>{setTossResult(r);setShowToss(false);}}/>;
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,#10281d 0%,#07100c 70%)"}}>
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px",background:"radial-gradient(ellipse at top,var(--bg3) 0%,var(--bg) 70%)"}}>
       <div style={{width:"100%",maxWidth:460}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:24,animation:"fadeInUp 0.6s ease"}}>
           <div style={{fontFamily:"Orbitron",fontSize:26,letterSpacing:3,color:"var(--accent)"}} className="glow">🏏 CRICSCAN</div>
           <div style={{color:"var(--muted)",fontSize:11,letterSpacing:2,marginTop:3}}>AI POWERED SCORER</div>
         </div>
+
+        <ThemeSettings theme={theme} onThemeChange={onThemeChange}/>
 
         {/* Step indicator */}
         <div style={{display:"flex",gap:8,marginBottom:20,justifyContent:"center"}}>
@@ -1075,7 +1144,10 @@ function SetupScreen({onStart}){
                 START MATCH ▶
               </button>
             </div>
-            <button onClick={clearSaved} style={{width:"100%",padding:"8px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={saveSetupData} style={{flex:1,padding:"9px 0",background:"rgba(124,255,107,0.08)",color:"var(--accent)",border:"1px solid rgba(124,255,107,0.28)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>{savedMsg||"SAVE NAMES & DATA"}</button>
+              <button onClick={clearSaved} style={{flex:1,padding:"9px 0",background:"transparent",color:"rgba(255,61,90,0.5)",border:"1px solid rgba(255,61,90,0.2)",borderRadius:"var(--rad)",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,letterSpacing:1,cursor:"pointer"}}>🗑 CLEAR SAVED DATA</button>
+            </div>
           </div>
         )}
       </div>
@@ -2092,6 +2164,12 @@ export default function App(){
   const [showInningsBreak,setShowInningsBreak]=useState(false);
   const [inningsEndPending,setInningsEndPending]=useState(false);
   const [showBatterChange,setShowBatterChange]=useState(false);
+  const [theme,setTheme]=useState(()=>localStorage.getItem("cricscan_theme")||"classic");
+
+  useEffect(()=>{
+    document.body.dataset.theme=theme;
+    try{localStorage.setItem("cricscan_theme",theme);}catch{}
+  },[theme]);
 
   // Check for live score URL param
   useEffect(()=>{
@@ -2583,7 +2661,7 @@ export default function App(){
           <div style={{color:"var(--muted)",fontSize:13,fontFamily:"Barlow Condensed",letterSpacing:2}}>LOADING...</div>
         </div>
       )}
-      {!authLoading&&screen==="splash"&&<SplashScreen onStart={()=>setScreen(user?"setup":"login")} onSignOut={handleSignOut} user={user}/>}
+      {!authLoading&&screen==="splash"&&<SplashScreen onStart={()=>setScreen(user?"setup":"login")} onSignOut={handleSignOut} user={user} theme={theme} onThemeChange={setTheme}/>}
       {!authLoading&&screen==="login"&&<LoginScreen onLogin={()=>setScreen("setup")}/>}
       {!authLoading&&screen==="setup"&&(
         <div style={{position:"relative"}}>
@@ -2593,7 +2671,7 @@ export default function App(){
             <button onClick={()=>setShowLiveBrowser(true)} style={{background:"rgba(57,255,20,0.12)",border:"1px solid rgba(57,255,20,0.4)",color:"var(--accent3)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>📡</button>
             <button onClick={handleSignOut} style={{background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--muted)",borderRadius:"var(--rad)",padding:"6px 10px",fontFamily:"Barlow Condensed",fontWeight:700,fontSize:12,cursor:"pointer"}}>⏏</button>
           </div>
-          <SetupScreen onStart={startMatch}/>
+          <SetupScreen onStart={startMatch} theme={theme} onThemeChange={setTheme}/>
         </div>
       )}
       {screen==="camera"&&<PitchMapSetup onDone={z=>{setMatch(m=>({...m,zones:z}));setScreen("scoring");}} onSkip={()=>setScreen("scoring")}/>}
